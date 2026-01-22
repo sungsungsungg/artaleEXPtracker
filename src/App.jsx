@@ -53,10 +53,10 @@ function App() {
     );
   };
   // ✅ close overlay window
-  const closeOverlay = () => {
-    overlayRef.current?.close();
-    overlayRef.current = null;
-  };
+  // const closeOverlay = () => {
+  //   overlayRef.current?.close();
+  //   overlayRef.current = null;
+  // };
 
   // ✅ push updates to overlay whenever values change
   useEffect(() => {
@@ -97,7 +97,7 @@ function App() {
       <div>
         10min EXP : {expRate ? numberWithCommas(expRate.toFixed(0)) : 0}
       </div>
-
+      {/* 
       <div
         style={{
           display: "flex",
@@ -108,7 +108,7 @@ function App() {
       >
         <button onClick={openOverlay}>Open A Tab</button>
       </div>
-      <br />
+      <br /> */}
 
       <ScreenShare
         setExp={setExp}
@@ -124,8 +124,8 @@ function App() {
         <br />
         3. Check if you get the correct EXP number (if not, drag again or resize
         the Artale window) <br />
-        4. If you want to open a small tab, click on "Open A Tab" <br />
-        5. Not going to make this better, so be happy with what’s here for now
+        {/* 4. If you want to open a small tab, click on "Open A Tab" <br /> */}
+        4. Not going to make this better, so be happy with what’s here for now
         😄
       </p>
     </>
