@@ -134,7 +134,7 @@ function App() {
         ) : (
           <ContentCard title={"10min EXP"} content={0} />
         )}
-        {timeLeftToLevel && expGained > 0 ? (
+        {timeLeftToLevel && Number.isFinite(timeLeftToLevel) ? (
           <ContentCard
             title={"Time Left For a level"}
             content={`${hourToLevel >= 100 ? hourToLevel : twoDigits(hourToLevel)}:${twoDigits(minuteToLevel)}:${twoDigits(secondToLevel)}`}
