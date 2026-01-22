@@ -36,26 +36,32 @@ function App() {
   const expGained = exp.number - firstExp.number;
   const timeSpent = hasTimes ? (exp.time - firstExp.time) / 1000 : 0;
 
-  // 10 minutes = 600 seconds
-  const expRate = timeSpent > 0 ? (expGained / timeSpent) * 600 : 0;
+  // exp/sec
+  const expPerSec = timeSpent > 0 ? expGained / timeSpent : 0;
 
-  const totalExpToLevel = (Number(firstExp.number) / Number(expPercent)) * 100;
-  const leftOverExpToLevel = totalExpToLevel - firstExp.number;
-  const timeLeftToLevel = hasTimes
-    ? leftOverExpToLevel / (expGained / timeSpent / 10)
-    : 0;
+  // (optional) 10-min estimate
+  const expRate = expPerSec > 0 ? expPerSec * 600 : 0;
 
-  const secondToLevel = hasTimes
-    ? Math.floor((timeLeftToLevel - (exp.time - firstExp.time)) % 60)
-    : 0;
+  // freeze percent at start
+  const p0 = Number(expPercent); // initial percent (0..100)
+  const E0 = Number(firstExp.number); // initial exp-in-level
 
-  const minuteToLevel = hasTimes
-    ? Math.floor(((timeLeftToLevel - (exp.time - firstExp.time)) / 60) % 60)
-    : 0;
+  // estimate total exp needed for the level from initial snapshot
+  const totalExpToLevel = p0 > 0 ? (E0 * 100) / p0 : 0;
 
-  const hourToLevel = hasTimes
-    ? Math.floor((timeLeftToLevel - (exp.time - firstExp.time)) / 3600)
-    : 0;
+  // estimated current exp-in-level using only gained exp
+  const currentExpEst = E0 + expGained;
+
+  // remaining exp
+  const leftOverExpToLevel = Math.max(0, totalExpToLevel - currentExpEst);
+
+  // seconds remaining
+  const timeLeftSec = expPerSec > 0 ? leftOverExpToLevel / expPerSec : 0;
+
+  // split
+  const hourToLevel = Math.floor(timeLeftSec / 3600);
+  const minuteToLevel = Math.floor((timeLeftSec % 3600) / 60);
+  const secondToLevel = Math.floor(timeLeftSec % 60);
 
   // ✅ open overlay window
   const openOverlay = () => {
@@ -134,9 +140,7 @@ function App() {
         ) : (
           <ContentCard title={"10min EXP"} content={0} />
         )}
-        {timeLeftToLevel &&
-        Number.isFinite(timeLeftToLevel) &&
-        timeLeftToLevel > 0 ? (
+        {timeLeftSec && Number.isFinite(timeLeftSec) && timeLeftSec > 0 ? (
           <ContentCard
             title={"Time Left For a level"}
             content={`${hourToLevel >= 100 ? hourToLevel : twoDigits(hourToLevel)}:${twoDigits(minuteToLevel)}:${twoDigits(secondToLevel)}`}
@@ -177,7 +181,9 @@ function App() {
         3. Check if you get the correct starting EXP number (if not, drag again
         or reset or resize the Artale window) <br />
         4. Not going to make this better, so be happy with what’s here for now
-        😄
+        😄 <br />
+        **Time Left for a level can be extra imprecise if your exp is lower than
+        1% or higher than 99%
       </p>
     </>
   );
