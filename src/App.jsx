@@ -142,10 +142,6 @@ function App() {
         ) : (
           <ContentCard title={"Time Left For a level"} content={`00:00:00`} />
         )}
-        <ContentCard
-          title={"Time Left For a level"}
-          content={`${hourToLevel >= 100 ? hourToLevel : twoDigits(hourToLevel)}:${twoDigits(minuteToLevel)}:${twoDigits(secondToLevel)}`}
-        />
         {/*   const totalExpToLevel = (Number(firstExp) / Number(expPercent)) * 100; */}
       </div>
       {/* 
