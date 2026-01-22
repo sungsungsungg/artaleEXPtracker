@@ -214,11 +214,11 @@ export default function CropSelector({
 
       // Update states
       if (expNumber) setExp({ number: expNumber, time: new Date() });
-      if (pct) setExpPercent(pct);
 
       // First EXP capture
       if (isFirstRef.current && expNumber) {
         setFirstExp({ number: expNumber, time: new Date() });
+        if (pct) setExpPercent(pct);
         isFirstRef.current = false;
       }
 

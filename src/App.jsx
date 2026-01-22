@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import ScreenShare from "./utils/screenShare";
 import "./App.css";
+import "bootstrap/dist/css/bootstrap.min.css";
+import Card from "./utils/ContentCard.jsx";
+import ContentCard from "./utils/ContentCard.jsx";
 
 function App() {
   const [firstExp, setFirstExp] = useState({ number: 0, time: null });
@@ -35,6 +38,24 @@ function App() {
 
   // 10 minutes = 600 seconds
   const expRate = timeSpent > 0 ? (expGained / timeSpent) * 600 : 0;
+
+  const totalExpToLevel = (Number(firstExp.number) / Number(expPercent)) * 100;
+  const leftOverExpToLevel = totalExpToLevel - firstExp.number;
+  const timeLeftToLevel = hasTimes
+    ? leftOverExpToLevel / (expGained / timeSpent / 10)
+    : 0;
+
+  const secondToLevel = hasTimes
+    ? Math.floor((timeLeftToLevel - (exp.time - firstExp.time)) % 60)
+    : 0;
+
+  const minuteToLevel = hasTimes
+    ? Math.floor(((timeLeftToLevel - (exp.time - firstExp.time)) / 60) % 60)
+    : 0;
+
+  const hourToLevel = hasTimes
+    ? Math.floor((timeLeftToLevel - (exp.time - firstExp.time)) / 3600)
+    : 0;
 
   // ✅ open overlay window
   const openOverlay = () => {
@@ -87,15 +108,37 @@ function App() {
     <>
       <h1>EXP Tracker Artale</h1>
 
-      <div>
-        Current Exp: {numberWithCommas(exp.number)} ({expPercent}%)
+      <div style={{ display: "flex", justifyContent: "space-evenly" }}>
+        <ContentCard
+          title={"Starting EXP"}
+          content={numberWithCommas(firstExp.number)}
+        />
+        <ContentCard title={"Starting EXP (%)"} content={`${expPercent}%`} />
       </div>
-      <div>Started from: {numberWithCommas(firstExp.number)}</div>
-      <div>
-        Duration : {twoDigits(minute)}:{twoDigits(second)}
+      <div style={{ display: "flex", justifyContent: "space-evenly" }}>
+        <ContentCard
+          title={"Current EXP"}
+          content={numberWithCommas(exp.number)}
+        />
+        <ContentCard
+          title={"Duration"}
+          content={`${twoDigits(minute)}:${twoDigits(second)}`}
+        />
       </div>
-      <div>
-        10min EXP : {expRate ? numberWithCommas(expRate.toFixed(0)) : 0}
+      <div style={{ display: "flex", justifyContent: "space-evenly" }}>
+        {expRate ? (
+          <ContentCard
+            title={"10min EXP"}
+            content={numberWithCommas(expRate.toFixed(0))}
+          />
+        ) : (
+          <ContentCard title={"10min EXP"} content={0} />
+        )}
+        <ContentCard
+          title={"Time Left For a level"}
+          content={`${hourToLevel >= 100 ? hourToLevel : twoDigits(hourToLevel)}:${twoDigits(minuteToLevel)}:${twoDigits(secondToLevel)}`}
+        />
+        {/*   const totalExpToLevel = (Number(firstExp) / Number(expPercent)) * 100; */}
       </div>
       {/* 
       <div
@@ -120,11 +163,10 @@ function App() {
         How to use <br />
         1. Share the screen of Artale (works best if you share the entire
         screen) <br />
-        2. Drag over the EXP area (should include the EXP number and percentage){" "}
-        <br />
-        3. Check if you get the correct EXP number (if not, drag again or resize
-        the Artale window) <br />
-        {/* 4. If you want to open a small tab, click on "Open A Tab" <br /> */}
+        2. Drag over the EXP bar area (should include the EXP number and
+        percentage) <br />
+        3. Check if you get the correct starting EXP number (if not, drag again
+        or reset or resize the Artale window) <br />
         4. Not going to make this better, so be happy with what’s here for now
         😄
       </p>

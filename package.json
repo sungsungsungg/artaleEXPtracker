@@ -11,8 +11,11 @@
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
+    "boostrap": "^2.0.0",
+    "bootstrap": "^5.3.8",
     "docs": "^0.3.2-canary.0",
     "react": "^19.2.0",
+    "react-bootstrap": "^2.10.10",
     "react-dom": "^19.2.0",
     "tesseract.js": "^7.0.0"
   },
