@@ -68,7 +68,7 @@ function App() {
     const base = import.meta.env.BASE_URL; // e.g. "/" or "/artaleEXPtracker/"
 
     overlayRef.current = window.open(
-      `${base}overlay`,
+      `${base}artaleEXPtracker`,
       "exp-overlay",
       "width=500,height=400,top=80,left=40",
     );
@@ -149,7 +149,7 @@ function App() {
         )}
         {/*   const totalExpToLevel = (Number(firstExp) / Number(expPercent)) * 100; */}
       </div>
-      {/* 
+
       <div
         style={{
           display: "flex",
@@ -160,7 +160,7 @@ function App() {
       >
         <button onClick={openOverlay}>Open A Tab</button>
       </div>
-      <br /> */}
+      <br />
 
       <ScreenShare
         setExp={setExp}
