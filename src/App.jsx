@@ -43,13 +43,15 @@ function App() {
       return;
     }
 
+    // Vite sets this to "/" locally, and "/artaleEXPtracker/" on GitHub Pages (if base is configured)
+    const base = import.meta.env.BASE_URL; // e.g. "/" or "/artaleEXPtracker/"
+
     overlayRef.current = window.open(
-      "/overlay",
+      `${base}overlay`,
       "exp-overlay",
       "width=500,height=400,top=80,left=40",
     );
   };
-
   // ✅ close overlay window
   const closeOverlay = () => {
     overlayRef.current?.close();
@@ -96,7 +98,7 @@ function App() {
         10min EXP : {expRate ? numberWithCommas(expRate.toFixed(0)) : 0}
       </div>
 
-      {/* <div
+      <div
         style={{
           display: "flex",
           gap: 8,
@@ -105,7 +107,7 @@ function App() {
         }}
       >
         <button onClick={openOverlay}>Open A Tab</button>
-      </div> */}
+      </div>
       <br />
 
       <ScreenShare
@@ -122,7 +124,8 @@ function App() {
         <br />
         3. Check if you get the correct EXP number (if not, drag again or resize
         the Artale window) <br />
-        4. Not going to make this better, so be happy with what’s here for now
+        4. If you want to open a small tab, click on "Open A Tab" <br />
+        5. Not going to make this better, so be happy with what’s here for now
         😄
       </p>
     </>
