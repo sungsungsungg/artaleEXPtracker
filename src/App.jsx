@@ -134,6 +134,14 @@ function App() {
         ) : (
           <ContentCard title={"10min EXP"} content={0} />
         )}
+        {timeLeftToLevel ? (
+          <ContentCard
+            title={"Time Left For a level"}
+            content={`${hourToLevel >= 100 ? hourToLevel : twoDigits(hourToLevel)}:${twoDigits(minuteToLevel)}:${twoDigits(secondToLevel)}`}
+          />
+        ) : (
+          <ContentCard title={"Time Left For a level"} content={`00:00:00`} />
+        )}
         <ContentCard
           title={"Time Left For a level"}
           content={`${hourToLevel >= 100 ? hourToLevel : twoDigits(hourToLevel)}:${twoDigits(minuteToLevel)}:${twoDigits(secondToLevel)}`}
