@@ -68,7 +68,7 @@ function App() {
     const base = import.meta.env.BASE_URL; // e.g. "/" or "/artaleEXPtracker/"
 
     overlayRef.current = window.open(
-      `${base}artaleEXPtracker`,
+      `${base}`,
       "exp-overlay",
       "width=500,height=400,top=80,left=40",
     );
