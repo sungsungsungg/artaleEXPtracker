@@ -173,7 +173,7 @@ function App() {
         1. Share the screen of Artale (works best if you share the entire
         screen) <br />
         2. Drag over the EXP bar area (should include the EXP number and
-        percentage) <br />
+        percentage inside the red box) <br />
         3. Check if you get the correct starting EXP number (if not, drag again
         or reset or resize the Artale window) <br />
         4. Not going to make this better, so be happy with what’s here for now
