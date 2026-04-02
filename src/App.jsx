@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import ScreenShare from "./utils/screenShare";
 import "./App.css";
 import "bootstrap/dist/css/bootstrap.min.css";
 import ContentCard from "./utils/ContentCard.jsx";
+import StatsOverlay from "./StatsOverlay.jsx";
+import usePip from "./hooks/usePip";
 
 function App() {
   const [previewExp, setPreviewExp] = useState(null);
@@ -14,9 +17,15 @@ function App() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [hasCropRegion, setHasCropRegion] = useState(false);
   const [hasStream, setHasStream] = useState(false);
-
-  // ✅ overlay window ref
-  const overlayRef = useRef(null);
+  const {
+    isSupported: isPipSupported,
+    mountNode: pipMountNode,
+    openPip,
+  } = usePip({
+    width: 380,
+    height: 300,
+    title: "Floating EXP Stats",
+  });
 
   // ---- utils ----
   function numberWithCommas(x) {
@@ -76,6 +85,32 @@ function App() {
   const canReset = hasSession || elapsedSeconds > 0 || !isIdle;
   const sessionStatusLabel =
     trackingStatus.charAt(0).toUpperCase() + trackingStatus.slice(1);
+  const floatingStatsPayload = useMemo(
+    () => ({
+      currentExp: numberWithCommas(previewExp ?? 0),
+      gainedExp: hasSession ? numberWithCommas(expGained) : "Not Started",
+      duration: `${twoDigits(minute)}:${twoDigits(second)}`,
+      expPercent: hasSession ? `${sessionStartPercent}%` : "Not Started",
+      exp10min: expRate ? numberWithCommas(expRate.toFixed(0)) : "Not Measured",
+      timeLeftForLevel: hasTimeToLevel
+        ? `${hourToLevel >= 100 ? hourToLevel : twoDigits(hourToLevel)}:${twoDigits(minuteToLevel)}:${twoDigits(secondToLevel)}`
+        : "Not Measured",
+      status: sessionStatusLabel,
+    }),
+    [
+      previewExp,
+      hasSession,
+      expGained,
+      minute,
+      second,
+      sessionStartPercent,
+      expRate,
+      hasTimeToLevel,
+      hourToLevel,
+      minuteToLevel,
+      secondToLevel,
+    ],
+  );
 
   useEffect(() => {
     if (!isRunning) return undefined;
@@ -148,55 +183,9 @@ function App() {
     }
   };
 
-  // ✅ open overlay window
-  const openOverlay = () => {
-    if (overlayRef.current && !overlayRef.current.closed) {
-      overlayRef.current.focus();
-      return;
-    }
-
-    // Vite sets this to "/" locally, and "/artaleEXPtracker/" on GitHub Pages (if base is configured)
-    const base = import.meta.env.BASE_URL; // e.g. "/" or "/artaleEXPtracker/"
-
-    overlayRef.current = window.open(
-      `${base}`,
-      "exp-overlay",
-      "width=500,height=400,top=80,left=40",
-    );
-  };
-  // ✅ close overlay window
-  // const closeOverlay = () => {
-  //   overlayRef.current?.close();
-  //   overlayRef.current = null;
-  // };
-
-  // ✅ push updates to overlay whenever values change
-  useEffect(() => {
-    const w = overlayRef.current;
-    if (!w || w.closed) return;
-
-    w.postMessage(
-      {
-        type: "EXP_UPDATE",
-        payload: {
-          exp: numberWithCommas(previewExp ?? 0),
-          expPercent: sessionStartPercent ?? 0,
-          startedFrom: numberWithCommas(sessionStartExp ?? 0),
-          duration: `${twoDigits(minute)}:${twoDigits(second)}`,
-          exp10min: expRate ? numberWithCommas(expRate.toFixed(0)) : "0",
-        },
-      },
-      window.location.origin,
-    );
-  }, [previewExp, sessionStartPercent, sessionStartExp, minute, second, expRate]);
-
-  // ✅ cleanup when main tab closes
-  useEffect(() => {
-    return () => overlayRef.current?.close();
-  }, []);
-
   return (
-    <main className="dashboard-shell">
+    <>
+      <main className="dashboard-shell">
       <header className="dashboard-header">
         <div>
           <h1 className="dashboard-title">EXP Tracker Artale</h1>
@@ -263,11 +252,15 @@ function App() {
       <section className="panel controls-panel">
         <div className="panel-header">
           <h2>Session Controls</h2>
-          <p>Stopwatch-style controls for run, pause, resume, and reset.</p>
+          <p>Stopwatch controls + Document Picture-in-Picture floating stats.</p>
         </div>
         <div className="controls-row">
-          <button className="control-btn control-btn-overlay" onClick={openOverlay}>
-            Open Capture Tab
+          <button
+            className="control-btn control-btn-overlay"
+            onClick={openPip}
+            disabled={!isPipSupported}
+          >
+            Open Floating Stats
           </button>
           {isIdle && (
             <button
@@ -327,7 +320,24 @@ function App() {
           5. Reset clears session stats while keeping capture selection available.
         </p>
       </section>
-    </main>
+      </main>
+      {pipMountNode
+        ? createPortal(
+            <StatsOverlay
+              stats={floatingStatsPayload}
+              trackingStatus={trackingStatus}
+              canStart={isIdle && hasStream && hasCropRegion && hasValidPreviewExp}
+              canContinue={isPaused && hasStream}
+              canReset={canReset}
+              onStart={handleStart}
+              onStop={handleStop}
+              onContinue={handleContinue}
+              onReset={handleReset}
+            />,
+            pipMountNode,
+          )
+        : null}
+    </>
   );
 }
 
