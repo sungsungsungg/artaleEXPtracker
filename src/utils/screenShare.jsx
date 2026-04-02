@@ -1,7 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import CropSelector from "./screenDrag";
 
-export default function ScreenShare({ setExp, setExpPercent, setFirstExp }) {
+export default function ScreenShare({
+  onReading,
+  onRegionChange,
+  onStreamChange,
+  onShareStopped,
+}) {
   const videoRef = useRef(null);
   const [stream, setStream] = useState(null);
   const [error, setError] = useState("");
@@ -17,6 +22,7 @@ export default function ScreenShare({ setExp, setExpPercent, setFirstExp }) {
       });
 
       setStream(s);
+      onStreamChange?.(true);
       if (videoRef.current) {
         videoRef.current.srcObject = s;
       }
@@ -36,25 +42,34 @@ export default function ScreenShare({ setExp, setExpPercent, setFirstExp }) {
     if (videoRef.current) videoRef.current.srcObject = null;
     stream?.getTracks().forEach((t) => t.stop());
     setStream(null);
+    onStreamChange?.(false);
+    onShareStopped?.();
   };
 
   return (
-    <div style={{ display: "grid", gap: 12 }}>
-      {error && <div style={{ color: "crimson" }}>{error}</div>}
+    <div className="capture-shell">
+      {error && <div className="capture-error">{error}</div>}
 
       <CropSelector
         videoRef={videoRef}
         stream={stream}
-        setExp={setExp}
-        setExpPercent={setExpPercent}
-        setFirstExp={setFirstExp}
+        onReading={onReading}
+        onRegionChange={onRegionChange}
       />
-      <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={startShare} disabled={!!stream}>
+      <div className="capture-actions">
+        <button
+          className="control-btn control-btn-start"
+          onClick={startShare}
+          disabled={!!stream}
+        >
           Share screen
         </button>
-        <button onClick={stopShare} disabled={!stream}>
-          Stop
+        <button
+          className="control-btn control-btn-stop"
+          onClick={stopShare}
+          disabled={!stream}
+        >
+          Stop capture
         </button>
       </div>
     </div>

@@ -1,17 +1,31 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import ScreenShare from "./utils/screenShare";
 import "./App.css";
 import "bootstrap/dist/css/bootstrap.min.css";
-import Card from "./utils/ContentCard.jsx";
 import ContentCard from "./utils/ContentCard.jsx";
+import StatsOverlay from "./StatsOverlay.jsx";
+import usePip from "./hooks/usePip";
 
 function App() {
-  const [firstExp, setFirstExp] = useState({ number: 0, time: null });
-  const [exp, setExp] = useState({ number: 0, time: null });
-  const [expPercent, setExpPercent] = useState(0);
-
-  // ✅ overlay window ref
-  const overlayRef = useRef(null);
+  const [previewExp, setPreviewExp] = useState(null);
+  const [previewPercent, setPreviewPercent] = useState(null);
+  const [sessionStartExp, setSessionStartExp] = useState(null);
+  const [sessionCurrentExp, setSessionCurrentExp] = useState(null);
+  const [sessionStartPercent, setSessionStartPercent] = useState(0);
+  const [trackingStatus, setTrackingStatus] = useState("idle");
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [hasCropRegion, setHasCropRegion] = useState(false);
+  const [hasStream, setHasStream] = useState(false);
+  const {
+    isSupported: isPipSupported,
+    mountNode: pipMountNode,
+    openPip,
+  } = usePip({
+    width: 380,
+    height: 300,
+    title: "Floating EXP Stats",
+  });
 
   // ---- utils ----
   function numberWithCommas(x) {
@@ -23,18 +37,22 @@ function App() {
   }
 
   // ---- derived values (safe guards) ----
-  const hasTimes = firstExp.time && exp.time && exp.time >= firstExp.time;
+  const second = Math.floor(elapsedSeconds % 60);
+  const minute = Math.floor(elapsedSeconds / 60);
+  const isRunning = trackingStatus === "running";
+  const isPaused = trackingStatus === "paused";
+  const isIdle = trackingStatus === "idle";
+  const hasValidPreviewExp =
+    typeof previewExp === "number" && Number.isFinite(previewExp);
+  const hasSession = typeof sessionStartExp === "number";
+  const currentSessionExp = hasSession
+    ? (isRunning ? previewExp : sessionCurrentExp) ?? sessionCurrentExp
+    : null;
 
-  const second = hasTimes
-    ? Math.floor(((exp.time - firstExp.time) / 1000) % 60)
+  const expGained = hasSession
+    ? Number(currentSessionExp ?? sessionStartExp) - Number(sessionStartExp)
     : 0;
-
-  const minute = hasTimes
-    ? Math.floor((exp.time - firstExp.time) / 1000 / 60)
-    : 0;
-
-  const expGained = exp.number - firstExp.number;
-  const timeSpent = hasTimes ? (exp.time - firstExp.time) / 1000 : 0;
+  const timeSpent = elapsedSeconds;
 
   // exp/sec
   const expPerSec = timeSpent > 0 ? expGained / timeSpent : 0;
@@ -43,8 +61,8 @@ function App() {
   const expRate = expPerSec > 0 ? expPerSec * 600 : 0;
 
   // freeze percent at start
-  const p0 = Number(expPercent); // initial percent (0..100)
-  const E0 = Number(firstExp.number); // initial exp-in-level
+  const p0 = Number(sessionStartPercent); // initial percent (0..100)
+  const E0 = Number(sessionStartExp ?? 0); // initial exp-in-level
 
   // estimate total exp needed for the level from initial snapshot
   const totalExpToLevel = p0 > 0 ? (E0 * 100) / p0 : 0;
@@ -62,129 +80,263 @@ function App() {
   const hourToLevel = Math.floor(timeLeftSec / 3600);
   const minuteToLevel = Math.floor((timeLeftSec % 3600) / 60);
   const secondToLevel = Math.floor(timeLeftSec % 60);
+  const hasTimeToLevel =
+    timeLeftSec && Number.isFinite(timeLeftSec) && timeLeftSec > 0;
+  const canReset = hasSession || elapsedSeconds > 0 || !isIdle;
+  const sessionStatusLabel =
+    trackingStatus.charAt(0).toUpperCase() + trackingStatus.slice(1);
+  const floatingStatsPayload = useMemo(
+    () => ({
+      currentExp: numberWithCommas(previewExp ?? 0),
+      gainedExp: hasSession ? numberWithCommas(expGained) : "Not Started",
+      duration: `${twoDigits(minute)}:${twoDigits(second)}`,
+      expPercent: hasSession ? `${sessionStartPercent}%` : "Not Started",
+      exp10min: expRate ? numberWithCommas(expRate.toFixed(0)) : "Not Measured",
+      timeLeftForLevel: hasTimeToLevel
+        ? `${hourToLevel >= 100 ? hourToLevel : twoDigits(hourToLevel)}:${twoDigits(minuteToLevel)}:${twoDigits(secondToLevel)}`
+        : "Not Measured",
+      status: sessionStatusLabel,
+    }),
+    [
+      previewExp,
+      hasSession,
+      expGained,
+      minute,
+      second,
+      sessionStartPercent,
+      expRate,
+      hasTimeToLevel,
+      hourToLevel,
+      minuteToLevel,
+      secondToLevel,
+    ],
+  );
 
-  // ✅ open overlay window
-  const openOverlay = () => {
-    if (overlayRef.current && !overlayRef.current.closed) {
-      overlayRef.current.focus();
+  useEffect(() => {
+    if (!isRunning) return undefined;
+    const intervalId = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(intervalId);
+  }, [isRunning]);
+
+  const handleStart = () => {
+    if (!hasValidPreviewExp) return;
+    setSessionStartExp(previewExp);
+    setSessionCurrentExp(previewExp);
+    setSessionStartPercent(
+      typeof previewPercent === "number" && Number.isFinite(previewPercent)
+        ? previewPercent
+        : 0,
+    );
+    setElapsedSeconds(0);
+    setTrackingStatus("running");
+  };
+
+  const handleStop = () => {
+    setTrackingStatus("paused");
+  };
+
+  const handleContinue = () => {
+    setTrackingStatus("running");
+  };
+
+  const handleReset = () => {
+    if (isRunning) {
+      setSessionStartExp(hasValidPreviewExp ? previewExp : null);
+      setSessionCurrentExp(hasValidPreviewExp ? previewExp : null);
+      setSessionStartPercent(
+        hasValidPreviewExp &&
+          typeof previewPercent === "number" &&
+          Number.isFinite(previewPercent)
+          ? previewPercent
+          : 0,
+      );
+      setElapsedSeconds(0);
+      setTrackingStatus("running");
       return;
     }
 
-    // Vite sets this to "/" locally, and "/artaleEXPtracker/" on GitHub Pages (if base is configured)
-    const base = import.meta.env.BASE_URL; // e.g. "/" or "/artaleEXPtracker/"
-
-    overlayRef.current = window.open(
-      `${base}`,
-      "exp-overlay",
-      "width=500,height=400,top=80,left=40",
-    );
+    setTrackingStatus("idle");
+    setSessionStartExp(null);
+    setSessionCurrentExp(null);
+    setSessionStartPercent(0);
+    setElapsedSeconds(0);
   };
-  // ✅ close overlay window
-  // const closeOverlay = () => {
-  //   overlayRef.current?.close();
-  //   overlayRef.current = null;
-  // };
 
-  // ✅ push updates to overlay whenever values change
-  useEffect(() => {
-    const w = overlayRef.current;
-    if (!w || w.closed) return;
+  const handleReading = ({ expNumber, pct }) => {
+    if (typeof expNumber === "number" && Number.isFinite(expNumber)) {
+      setPreviewExp(expNumber);
+      if (isRunning) {
+        setSessionCurrentExp(expNumber);
+      }
+    }
+    if (typeof pct === "number" && Number.isFinite(pct)) {
+      setPreviewPercent(pct);
+    }
+  };
 
-    w.postMessage(
-      {
-        type: "EXP_UPDATE",
-        payload: {
-          exp: numberWithCommas(exp.number),
-          expPercent: expPercent ?? 0,
-          startedFrom: numberWithCommas(firstExp.number),
-          duration: `${twoDigits(minute)}:${twoDigits(second)}`,
-          exp10min: expRate ? numberWithCommas(expRate.toFixed(0)) : "0",
-        },
-      },
-      window.location.origin,
-    );
-  }, [exp, expPercent, firstExp, minute, second, expRate]);
-
-  // ✅ cleanup when main tab closes
-  useEffect(() => {
-    return () => overlayRef.current?.close();
-  }, []);
+  const handleShareStopped = () => {
+    setHasStream(false);
+    if (isRunning) {
+      setTrackingStatus("paused");
+    }
+  };
 
   return (
     <>
-      <h1>EXP Tracker Artale</h1>
+      <main className="dashboard-shell">
+      <header className="dashboard-header">
+        <div>
+          <h1 className="dashboard-title">EXP Tracker Artale</h1>
+          <p className="dashboard-subtitle">Track EXP gain in real time</p>
+        </div>
+        <span className={`status-badge status-${trackingStatus}`}>
+          {sessionStatusLabel}
+        </span>
+      </header>
 
-      <div style={{ display: "flex", justifyContent: "space-evenly" }}>
-        <ContentCard
-          title={"Starting EXP"}
-          content={numberWithCommas(firstExp.number)}
-        />
-        <ContentCard title={"Starting EXP (%)"} content={`${expPercent}%`} />
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-evenly" }}>
-        <ContentCard
-          title={"Current EXP"}
-          content={numberWithCommas(exp.number)}
-        />
-        <ContentCard
-          title={"Duration"}
-          content={`${twoDigits(minute)}:${twoDigits(second)}`}
-        />
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-evenly" }}>
-        {expRate ? (
+      <section className="panel">
+        <div className="panel-header">
+          <h2>Session Metrics</h2>
+          <p>Live OCR preview and tracked session performance.</p>
+        </div>
+        <div className="metrics-grid metrics-grid-primary">
+          <ContentCard
+            title={"Current EXP"}
+            content={hasValidPreviewExp ? numberWithCommas(previewExp) : "Reading OCR..."}
+            priority="primary"
+            muted={!hasValidPreviewExp}
+          />
+          <ContentCard
+            title={"Gained EXP"}
+            content={hasSession ? numberWithCommas(expGained) : "Not Started"}
+            priority="primary"
+            muted={!hasSession}
+          />
+          <ContentCard
+            title={"Duration"}
+            content={`${twoDigits(minute)}:${twoDigits(second)}`}
+            priority="primary"
+          />
+        </div>
+
+        <div className="metrics-grid metrics-grid-secondary">
+          <ContentCard
+            title={"Starting EXP"}
+            content={hasSession ? numberWithCommas(sessionStartExp) : "Not Started"}
+            muted={!hasSession}
+          />
+          <ContentCard
+            title={"Starting EXP (%)"}
+            content={hasSession ? `${sessionStartPercent}%` : "Not Started"}
+            muted={!hasSession}
+          />
           <ContentCard
             title={"10min EXP"}
-            content={numberWithCommas(expRate.toFixed(0))}
+            content={expRate ? numberWithCommas(expRate.toFixed(0)) : "Not Measured"}
+            muted={!expRate}
           />
-        ) : (
-          <ContentCard title={"10min EXP"} content={0} />
-        )}
-        {timeLeftSec && Number.isFinite(timeLeftSec) && timeLeftSec > 0 ? (
           <ContentCard
             title={"Time Left For a level"}
-            content={`${hourToLevel >= 100 ? hourToLevel : twoDigits(hourToLevel)}:${twoDigits(minuteToLevel)}:${twoDigits(secondToLevel)}`}
+            content={
+              hasTimeToLevel
+                ? `${hourToLevel >= 100 ? hourToLevel : twoDigits(hourToLevel)}:${twoDigits(minuteToLevel)}:${twoDigits(secondToLevel)}`
+                : "Not Measured"
+            }
+            muted={!hasTimeToLevel}
           />
-        ) : (
-          <ContentCard
-            title={"Time Left For a level"}
-            content={`Not Measured`}
-          />
-        )}
-        {/*   const totalExpToLevel = (Number(firstExp) / Number(expPercent)) * 100; */}
-      </div>
+        </div>
+      </section>
 
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          marginTop: 12,
-          justifyContent: "center",
-        }}
-      >
-        <button onClick={openOverlay}>Open A Tab</button>
-      </div>
-      <br />
+      <section className="panel controls-panel">
+        <div className="panel-header">
+          <h2>Session Controls</h2>
+          <p>Stopwatch controls + Document Picture-in-Picture floating stats.</p>
+        </div>
+        <div className="controls-row">
+          <button
+            className="control-btn control-btn-overlay"
+            onClick={openPip}
+            disabled={!isPipSupported}
+          >
+            Open Floating Stats
+          </button>
+          {isIdle && (
+            <button
+              className="control-btn control-btn-start"
+              onClick={handleStart}
+              disabled={!hasStream || !hasCropRegion || !hasValidPreviewExp}
+            >
+              Start
+            </button>
+          )}
+          {isRunning && (
+            <button className="control-btn control-btn-stop" onClick={handleStop}>
+              Stop
+            </button>
+          )}
+          {isPaused && (
+            <>
+              <button
+                className="control-btn control-btn-continue"
+                onClick={handleContinue}
+                disabled={!hasStream}
+              >
+                Continue
+              </button>
+            </>
+          )}
+          <button
+            className="control-btn control-btn-reset"
+            onClick={handleReset}
+            disabled={!canReset}
+          >
+            Reset
+          </button>
+        </div>
+      </section>
 
-      <ScreenShare
-        setExp={setExp}
-        setExpPercent={setExpPercent}
-        setFirstExp={setFirstExp}
-      />
+      <section className="panel capture-panel">
+        <div className="panel-header">
+          <h2>Capture Preview</h2>
+          <p>Select the OCR area and verify live readings before starting.</p>
+        </div>
+        <ScreenShare
+          onReading={handleReading}
+          onRegionChange={setHasCropRegion}
+          onStreamChange={setHasStream}
+          onShareStopped={handleShareStopped}
+        />
+      </section>
 
-      <p>
-        How to use <br />
-        1. Share the screen of Artale (works best if you share the entire
-        screen) <br />
-        2. Drag over the EXP bar area (should include the EXP number and
-        percentage inside the red box) <br />
-        3. Check if you get the correct starting EXP number (if not, drag again
-        or reset or resize the Artale window) <br />
-        4. Not going to make this better, so be happy with what’s here for now
-        😄 <br />
-        **Time Left for a level can be extra imprecise if your exp is lower than
-        1% or higher than 99%
-      </p>
+      <section className="panel help-panel">
+        <p className="help-copy">
+          1. Share the screen of Artale (entire screen works best). <br />
+          2. Drag over the EXP bar area to include EXP number and percentage. <br />
+          3. OCR preview updates as soon as a valid area is selected. <br />
+          4. Click Start to begin tracking. Use Stop/Continue to pause and
+          resume. <br />
+          5. Reset clears session stats while keeping capture selection available.
+        </p>
+      </section>
+      </main>
+      {pipMountNode
+        ? createPortal(
+            <StatsOverlay
+              stats={floatingStatsPayload}
+              trackingStatus={trackingStatus}
+              canStart={isIdle && hasStream && hasCropRegion && hasValidPreviewExp}
+              canContinue={isPaused && hasStream}
+              canReset={canReset}
+              onStart={handleStart}
+              onStop={handleStop}
+              onContinue={handleContinue}
+              onReset={handleReset}
+            />,
+            pipMountNode,
+          )
+        : null}
     </>
   );
 }

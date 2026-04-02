@@ -1,0 +1,183 @@
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+#pip-root {
+  width: 100%;
+  height: 100%;
+}
+
+.pip-root {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 10px;
+  color: #e9f1ff;
+  background: linear-gradient(165deg, rgba(24, 33, 47, 0.98), rgba(15, 21, 31, 0.97));
+  border: 1px solid rgba(129, 154, 194, 0.24);
+  border-radius: 12px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.32);
+  font-family: "Inter", "Segoe UI", sans-serif;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 7px;
+}
+
+.pip-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(129, 154, 194, 0.2);
+  padding-bottom: 5px;
+}
+
+.pip-title {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  font-weight: 700;
+}
+
+.pip-subtitle {
+  margin: 1px 0 0;
+  font-size: 10px;
+  color: #8ea4c3;
+}
+
+.pip-status {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-radius: 999px;
+  padding: 3px 8px;
+  color: #cce0ff;
+  background: rgba(74, 105, 148, 0.28);
+  border: 1px solid rgba(109, 140, 180, 0.32);
+}
+
+.pip-primary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.pip-metric {
+  background: rgba(20, 30, 45, 0.72);
+  border-radius: 8px;
+  padding: 6px 7px 7px;
+  display: grid;
+  gap: 2px;
+}
+
+.pip-label {
+  margin: 0;
+  font-size: 9px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #95a9c6;
+  font-weight: 600;
+}
+
+.pip-value {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.15;
+  font-weight: 730;
+  color: #edf4ff;
+  word-break: break-word;
+}
+
+.pip-value-accent {
+  color: #baf0d2;
+}
+
+.pip-metric-inactive .pip-value {
+  font-size: 13px;
+  color: #7f92af;
+  font-weight: 620;
+}
+
+.pip-secondary {
+  display: grid;
+  gap: 3px;
+  border-top: 1px solid rgba(129, 154, 194, 0.18);
+  padding-top: 6px;
+}
+
+.pip-secondary-row {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.pip-secondary-label {
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #8fa4c4;
+}
+
+.pip-secondary-value {
+  font-size: 12px;
+  font-weight: 680;
+  color: #dfe9f8;
+  text-align: right;
+}
+
+.pip-secondary-inactive {
+  color: #8194b0;
+  font-weight: 600;
+}
+
+.pip-controls {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+  border-top: 1px solid rgba(129, 154, 194, 0.18);
+  padding-top: 6px;
+}
+
+.pip-control-btn {
+  border: 0;
+  border-radius: 7px;
+  padding: 5px 10px;
+  min-width: 78px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #f5f9ff;
+  cursor: pointer;
+  transition: filter 0.15s ease, opacity 0.15s ease;
+}
+
+.pip-control-btn:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.pip-control-btn:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+
+.pip-control-start {
+  background: #1f9d55;
+}
+
+.pip-control-stop {
+  background: #d63a3a;
+}
+
+.pip-control-continue {
+  background: #1678d6;
+}
+
+.pip-control-reset {
+  background: #6a737d;
+}
