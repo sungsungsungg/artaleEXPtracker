@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import Tesseract from "tesseract.js";
+import { createWorker, PSM } from "tesseract.js";
 
 /**
  * Helpers: preprocess + upscale for better OCR on HUD text
@@ -33,28 +33,92 @@ function upscaleCanvas(srcCanvas, scale = 5) {
   return up;
 }
 
+function sanitizeHudText(text) {
+  return (text || "")
+    .toUpperCase()
+    .replace(/[^\w[\].,%\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseHudValues(text) {
+  const sanitized = sanitizeHudText(text);
+  const compact = sanitized.replace(/\s+/g, "");
+
+  const pctMatch =
+    compact.match(/\[(\d{1,3}(?:\.\d{1,2})?)%?\]/) ||
+    compact.match(/(\d{1,3}(?:\.\d{1,2})?)%/);
+  const expSide = compact.split("[")[0] || compact;
+  const expMatch =
+    expSide.match(/\d{4,}(?:,\d{3})*/) || compact.match(/\d{4,}(?:,\d{3})*/);
+
+  const expValue = expMatch
+    ? Number(expMatch[0].replaceAll(",", ""))
+    : null;
+  const expPercent = pctMatch ? Number(pctMatch[1]) : null;
+
+  return {
+    sanitized,
+    expValue: Number.isFinite(expValue) ? expValue : null,
+    expPercent: Number.isFinite(expPercent) ? expPercent : null,
+  };
+}
+
+function getTextStripCanvas(frameCanvas, sx, sy, sw, sh) {
+  const stripTop = sy + Math.floor(sh * 0.02);
+  const stripHeight = Math.max(1, Math.floor(sh * 0.56));
+
+  const cropY = Math.max(0, stripTop);
+  const cropH = Math.min(frameCanvas.height - cropY, stripHeight);
+  if (cropH <= 0) return null;
+
+  const cropCanvas = document.createElement("canvas");
+  cropCanvas.width = sw;
+  cropCanvas.height = cropH;
+  const cropCtx = cropCanvas.getContext("2d");
+  if (!cropCtx) return null;
+  cropCtx.drawImage(frameCanvas, sx, cropY, sw, cropH, 0, 0, sw, cropH);
+  return cropCanvas;
+}
+
 export default function CropSelector({
   videoRef,
   stream,
-  setExp,
-  setExpPercent,
-  setFirstExp,
+  onReading,
+  onRegionChange,
 }) {
+  const MIN_ZOOM = 1;
+  const MAX_ZOOM = 6;
+  const ZOOM_STEP = 0.25;
+
   const canvasRef = useRef(null);
   const ctxRef = useRef(null);
+  const viewportRef = useRef(null);
+  const panDragRef = useRef({
+    active: false,
+    startX: 0,
+    startY: 0,
+    startScrollLeft: 0,
+    startScrollTop: 0,
+  });
 
   const [dragging, setDragging] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [interactionMode, setInteractionMode] = useState("select");
 
   // Store crop box in video/canvas pixel space: [x, y, w, h]
   const cropBoxRef = useRef([0, 0, 0, 0]);
   const start = useRef({ x: 0, y: 0 });
 
-  // Avoid stale closure issues with interval
-  const isFirstRef = useRef(true);
-
   // Reuse frame canvas for performance
   const frameCanvasRef = useRef(null);
   const frameCtxRef = useRef(null);
+  const ocrBusyRef = useRef(false);
+  const workerRef = useRef(null);
+  const loopTimerRef = useRef(null);
+  const stopLoopRef = useRef(false);
+  const [workerReady, setWorkerReady] = useState(false);
+  const acceptedRef = useRef({ expValue: null, expPercent: null });
 
   /**
    * Attach stream to video (React doesn't reliably set srcObject via JSX prop)
@@ -76,6 +140,37 @@ export default function CropSelector({
     ctxRef.current = canvas.getContext("2d");
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const setupWorker = async () => {
+      const worker = await createWorker("eng");
+      if (cancelled) {
+        await worker.terminate();
+        return;
+      }
+
+      workerRef.current = worker;
+      await worker.setParameters({
+        tessedit_char_whitelist: "EXP0123456789[].,%",
+        tessedit_pageseg_mode: PSM.SINGLE_LINE,
+      });
+      setWorkerReady(true);
+    };
+
+    setupWorker().catch(console.error);
+
+    return () => {
+      cancelled = true;
+      setWorkerReady(false);
+      const worker = workerRef.current;
+      workerRef.current = null;
+      if (worker) {
+        worker.terminate().catch(console.error);
+      }
+    };
+  }, []);
+
   /**
    * Convert mouse event to canvas (video pixel) coordinates
    */
@@ -92,12 +187,14 @@ export default function CropSelector({
   };
 
   const onMouseDown = (e) => {
+    if (interactionMode !== "select") return;
     const p = getCanvasPoint(e);
     start.current = p;
     setDragging(true);
   };
 
   const onMouseMove = (e) => {
+    if (interactionMode !== "select") return;
     if (!dragging) return;
 
     const canvas = canvasRef.current;
@@ -120,25 +217,109 @@ export default function CropSelector({
     ctx.strokeRect(left, top, width, height);
 
     cropBoxRef.current = [left, top, width, height];
+    onRegionChange?.(width >= 8 && height >= 8);
   };
 
   const onMouseUp = () => {
+    if (interactionMode !== "select") return;
     setDragging(false);
-    // reset "first exp" capture for new selection
-    isFirstRef.current = true;
+    const [, , width, height] = cropBoxRef.current;
+    onRegionChange?.(width >= 8 && height >= 8);
   };
+
+  const clampZoom = (nextZoom) =>
+    Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextZoom));
+
+  const applyZoom = (nextZoom) => {
+    const clamped = clampZoom(nextZoom);
+    if (clamped === zoom) return;
+
+    const viewport = viewportRef.current;
+    if (!viewport) {
+      setZoom(clamped);
+      return;
+    }
+
+    const centerX = viewport.scrollLeft + viewport.clientWidth / 2;
+    const centerY = viewport.scrollTop + viewport.clientHeight / 2;
+    const ratio = clamped / zoom;
+
+    setZoom(clamped);
+    requestAnimationFrame(() => {
+      viewport.scrollLeft = Math.max(
+        0,
+        centerX * ratio - viewport.clientWidth / 2,
+      );
+      viewport.scrollTop = Math.max(
+        0,
+        centerY * ratio - viewport.clientHeight / 2,
+      );
+    });
+  };
+
+  const resetZoom = () => {
+    const viewport = viewportRef.current;
+    setZoom(1);
+    setInteractionMode("select");
+    if (viewport) {
+      viewport.scrollLeft = 0;
+      viewport.scrollTop = 0;
+    }
+  };
+
+  const handleWheelZoom = (e) => {
+    if (!stream) return;
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    const direction = e.deltaY < 0 ? 1 : -1;
+    applyZoom(zoom + direction * ZOOM_STEP);
+  };
+
+  const onViewportMouseDown = (e) => {
+    if (interactionMode !== "pan" || zoom <= 1) return;
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    panDragRef.current = {
+      active: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      startScrollLeft: viewport.scrollLeft,
+      startScrollTop: viewport.scrollTop,
+    };
+  };
+
+  const onViewportMouseMove = (e) => {
+    if (!panDragRef.current.active) return;
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    e.preventDefault();
+    const deltaX = e.clientX - panDragRef.current.startX;
+    const deltaY = e.clientY - panDragRef.current.startY;
+    viewport.scrollLeft = panDragRef.current.startScrollLeft - deltaX;
+    viewport.scrollTop = panDragRef.current.startScrollTop - deltaY;
+  };
+
+  const stopPanDrag = () => {
+    panDragRef.current.active = false;
+  };
+
+  useEffect(() => {
+    if (!stream) {
+      resetZoom();
+    }
+  }, [stream]);
 
   /**
    * OCR loop (runs continuously, but only does work if a region is selected and not dragging)
    */
   useEffect(() => {
-    let intervalId;
+    if (!stream || !workerReady) return undefined;
+    stopLoopRef.current = false;
 
     const run = async () => {
       const video = videoRef.current;
-      const overlayCanvas = canvasRef.current;
-
-      if (!video || !overlayCanvas) return;
+      if (!video || !canvasRef.current) return;
       if (video.readyState < 2) return; // not enough frame data yet
       if (dragging) return; // don't OCR while user is selecting
 
@@ -164,7 +345,6 @@ export default function CropSelector({
       }
 
       const frameCanvas = frameCanvasRef.current;
-      const frameCtx = frameCtxRef.current;
 
       // If the video resolution changes, resize frame canvas
       if (
@@ -182,102 +362,161 @@ export default function CropSelector({
       // Draw current video frame
       frameCtx2.drawImage(video, 0, 0);
 
-      // Crop region into its own canvas
-      const cropCanvas = document.createElement("canvas");
-      cropCanvas.width = sw;
-      cropCanvas.height = sh;
-      const cropCtx = cropCanvas.getContext("2d");
-      if (!cropCtx) return;
-
-      // Faster than getImageData/putImageData: draw directly with source rect
-      cropCtx.drawImage(frameCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+      // Crop only the top text strip to reduce bright EXP bar noise.
+      const cropCanvas = getTextStripCanvas(frameCanvas, sx, sy, sw, sh);
+      if (!cropCanvas) return;
 
       // Preprocess + upscale
-      preprocessToBW(cropCanvas, 180);
-      const up = upscaleCanvas(cropCanvas, 3);
+      preprocessToBW(cropCanvas, 165);
+      const up = upscaleCanvas(cropCanvas, 4);
 
-      // OCR (digits + dot only). Reconstruct brackets yourself if needed.
-      const { data } = await Tesseract.recognize(up, "eng", {
-        tessedit_char_whitelist: "0123456789.",
-        tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE,
+      const worker = workerRef.current;
+      if (!worker) return;
+      const { data } = await worker.recognize(up);
+
+      const parsed = parseHudValues(data.text || "");
+      const plausibleExp =
+        Number.isFinite(parsed.expValue) && parsed.expValue >= 1000;
+      const plausiblePct =
+        Number.isFinite(parsed.expPercent) &&
+        parsed.expPercent >= 0 &&
+        parsed.expPercent <= 100;
+
+      if (!plausibleExp) return;
+
+      const last = acceptedRef.current;
+      const pctToUse = plausiblePct ? parsed.expPercent : last.expPercent;
+
+      acceptedRef.current = {
+        expValue: parsed.expValue,
+        expPercent: pctToUse ?? null,
+      };
+
+      onReading?.({
+        expNumber: acceptedRef.current.expValue,
+        pct: acceptedRef.current.expPercent,
       });
 
-      const normalized = (data.text || "").replace(/\s+/g, " ").trim();
-      if (!normalized) return;
-
-      // EXP: usually the long integer
-      const expNumber =
-        normalized.match(/\d{4,}/)?.[0] ?? normalized.match(/\d+/)?.[0] ?? "";
-
-      // Percent: usually decimal like 66.31
-      const pct = normalized.match(/\d+\.\d+/)?.[0] ?? "";
-
-      // Update states
-      if (expNumber) setExp({ number: expNumber, time: new Date() });
-
-      // First EXP capture
-      if (isFirstRef.current && expNumber) {
-        setFirstExp({ number: expNumber, time: new Date() });
-        if (pct) setExpPercent(pct);
-        isFirstRef.current = false;
-      }
-
       // Debug
-      console.log("OCR raw:", normalized, { expNumber, pct });
+      console.log("OCR raw:", parsed.sanitized, acceptedRef.current);
     };
 
-    intervalId = setInterval(() => {
-      run().catch(console.error);
-    }, 1000);
+    const loop = async () => {
+      if (stopLoopRef.current) return;
 
-    return () => clearInterval(intervalId);
-  }, [videoRef, dragging, setExp, setExpPercent, setFirstExp]);
+      if (!ocrBusyRef.current) {
+        ocrBusyRef.current = true;
+        try {
+          await run();
+        } catch (err) {
+          console.error(err);
+        } finally {
+          ocrBusyRef.current = false;
+        }
+      }
+
+      loopTimerRef.current = window.setTimeout(loop, 400);
+    };
+    loop();
+
+    return () => {
+      stopLoopRef.current = true;
+      if (loopTimerRef.current) {
+        clearTimeout(loopTimerRef.current);
+        loopTimerRef.current = null;
+      }
+    };
+  }, [videoRef, dragging, onReading, stream, workerReady]);
 
   return (
     <>
-      <button
-        style={{ width: "50%", justifySelf: "center" }}
-        onClick={() => {
-          isFirstRef.current = true;
-        }}
+      <div className="zoom-toolbar">
+        <div className="zoom-actions">
+          <button
+            className="control-btn control-btn-overlay"
+            type="button"
+            onClick={() => applyZoom(zoom - ZOOM_STEP)}
+            disabled={!stream || zoom <= MIN_ZOOM}
+          >
+            - Zoom Out
+          </button>
+          <button
+            className="control-btn control-btn-overlay"
+            type="button"
+            onClick={() => applyZoom(zoom + ZOOM_STEP)}
+            disabled={!stream || zoom >= MAX_ZOOM}
+          >
+            + Zoom In
+          </button>
+          <button
+            className="control-btn control-btn-reset"
+            type="button"
+            onClick={resetZoom}
+            disabled={!stream}
+          >
+            Reset Zoom
+          </button>
+          <button
+            className="control-btn control-btn-overlay"
+            type="button"
+            onClick={() =>
+              setInteractionMode((prev) => (prev === "pan" ? "select" : "pan"))
+            }
+            disabled={!stream || zoom <= 1}
+          >
+            {interactionMode === "pan" ? "Switch To Select" : "Enable Pan"}
+          </button>
+        </div>
+        <div className="zoom-meta">
+          <span className="zoom-percent">{Math.round(zoom * 100)}%</span>
+          <span className="zoom-hint">
+            Hold Ctrl and use mouse wheel to zoom.
+          </span>
+        </div>
+      </div>
+
+      <div
+        ref={viewportRef}
+        className={`preview-viewport ${interactionMode === "pan" ? "mode-pan" : "mode-select"}`}
+        onWheel={handleWheelZoom}
+        onMouseDown={onViewportMouseDown}
+        onMouseMove={onViewportMouseMove}
+        onMouseUp={stopPanDrag}
+        onMouseLeave={stopPanDrag}
       >
-        Reset
-      </button>
-      <div style={{ position: "relative", width: 800 }}>
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          playsInline
-          style={{
-            width: "100%",
-            border: "1px solid #ddd",
-            borderRadius: 8,
-          }}
-          onLoadedMetadata={() => {
-            const canvas = canvasRef.current;
-            const video = videoRef.current;
-            if (!canvas || !video) return;
+        <div className="preview-stage" style={{ width: `${zoom * 100}%` }}>
+          <video
+            ref={videoRef}
+            autoPlay
+            muted
+            playsInline
+            style={{ width: "100%", display: "block" }}
+            onLoadedMetadata={() => {
+              const canvas = canvasRef.current;
+              const video = videoRef.current;
+              if (!canvas || !video) return;
 
-            // Match overlay canvas pixel space to video pixel space
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-          }}
-        />
+              // Match overlay canvas pixel space to video pixel space
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+            }}
+          />
 
-        <canvas
-          ref={canvasRef}
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            cursor: "crosshair",
-          }}
-          onMouseDown={onMouseDown}
-          onMouseMove={onMouseMove}
-          onMouseUp={onMouseUp}
-        />
+          <canvas
+            ref={canvasRef}
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              cursor: interactionMode === "pan" ? "grab" : "crosshair",
+              pointerEvents: stream ? "auto" : "none",
+            }}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+          />
+        </div>
       </div>
     </>
   );

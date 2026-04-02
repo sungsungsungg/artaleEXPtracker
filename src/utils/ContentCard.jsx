@@ -1,17 +1,13 @@
-const ContentCard = ({ title, content }) => {
+const ContentCard = ({ title, content, priority = "secondary", muted = false }) => {
+  const priorityClass =
+    priority === "primary" ? "metric-card-primary" : "metric-card-secondary";
+
   return (
-    <>
-      <div
-        className="card mb-3"
-        style={{ maxWidth: "18rem", minWidth: "18rem" }}
-      >
-        <div className="card-header">{title}</div>
-        <div className="card-body">
-          {/* <h5 class="card-title">Primary card title</h5> */}
-          <p className="card-text">{content}</p>
-        </div>
-      </div>
-    </>
+    <div className={`metric-card ${priorityClass} ${muted ? "metric-card-muted" : ""}`}>
+      <p className="metric-label">{title}</p>
+      <div className="metric-value">{content}</div>
+    </div>
   );
 };
+
 export default ContentCard;
