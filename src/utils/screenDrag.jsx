@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createWorker, PSM } from "tesseract.js";
+import { useI18n } from "../i18n/LanguageContext.jsx";
 
 /**
  * Helpers: preprocess + upscale for better OCR on HUD text
@@ -87,6 +88,7 @@ export default function CropSelector({
   onReading,
   onRegionChange,
 }) {
+  const { t } = useI18n();
   const MIN_ZOOM = 1;
   const MAX_ZOOM = 6;
   const ZOOM_STEP = 0.25;
@@ -438,7 +440,7 @@ export default function CropSelector({
             onClick={() => applyZoom(zoom - ZOOM_STEP)}
             disabled={!stream || zoom <= MIN_ZOOM}
           >
-            - Zoom Out
+            {t("zoomOut")}
           </button>
           <button
             className="control-btn control-btn-overlay"
@@ -446,7 +448,7 @@ export default function CropSelector({
             onClick={() => applyZoom(zoom + ZOOM_STEP)}
             disabled={!stream || zoom >= MAX_ZOOM}
           >
-            + Zoom In
+            {t("zoomIn")}
           </button>
           <button
             className="control-btn control-btn-reset"
@@ -454,7 +456,7 @@ export default function CropSelector({
             onClick={resetZoom}
             disabled={!stream}
           >
-            Reset Zoom
+            {t("resetZoom")}
           </button>
           <button
             className="control-btn control-btn-overlay"
@@ -464,14 +466,12 @@ export default function CropSelector({
             }
             disabled={!stream || zoom <= 1}
           >
-            {interactionMode === "pan" ? "Switch To Select" : "Enable Pan"}
+            {interactionMode === "pan" ? t("switchToSelect") : t("enablePan")}
           </button>
         </div>
         <div className="zoom-meta">
           <span className="zoom-percent">{Math.round(zoom * 100)}%</span>
-          <span className="zoom-hint">
-            Hold Ctrl and use mouse wheel to zoom.
-          </span>
+          <span className="zoom-hint">{t("zoomHint")}</span>
         </div>
       </div>
 
