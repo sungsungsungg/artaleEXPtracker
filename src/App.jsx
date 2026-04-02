@@ -6,8 +6,11 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import ContentCard from "./utils/ContentCard.jsx";
 import StatsOverlay from "./StatsOverlay.jsx";
 import usePip from "./hooks/usePip";
+import { useI18n } from "./i18n/LanguageContext.jsx";
+import LanguageToggle from "./components/LanguageToggle.jsx";
 
 function App() {
+  const { t } = useI18n();
   const [previewExp, setPreviewExp] = useState(null);
   const [previewPercent, setPreviewPercent] = useState(null);
   const [sessionStartExp, setSessionStartExp] = useState(null);
@@ -24,7 +27,7 @@ function App() {
   } = usePip({
     width: 380,
     height: 300,
-    title: "Floating EXP Stats",
+    title: t("floatingStats"),
   });
 
   // ---- utils ----
@@ -83,18 +86,17 @@ function App() {
   const hasTimeToLevel =
     timeLeftSec && Number.isFinite(timeLeftSec) && timeLeftSec > 0;
   const canReset = hasSession || elapsedSeconds > 0 || !isIdle;
-  const sessionStatusLabel =
-    trackingStatus.charAt(0).toUpperCase() + trackingStatus.slice(1);
+  const sessionStatusLabel = t(trackingStatus);
   const floatingStatsPayload = useMemo(
     () => ({
       currentExp: numberWithCommas(previewExp ?? 0),
-      gainedExp: hasSession ? numberWithCommas(expGained) : "Not Started",
+      gainedExp: hasSession ? numberWithCommas(expGained) : t("notStarted"),
       duration: `${twoDigits(minute)}:${twoDigits(second)}`,
-      expPercent: hasSession ? `${sessionStartPercent}%` : "Not Started",
-      exp10min: expRate ? numberWithCommas(expRate.toFixed(0)) : "Not Measured",
+      expPercent: hasSession ? `${sessionStartPercent}%` : t("notStarted"),
+      exp10min: expRate ? numberWithCommas(expRate.toFixed(0)) : t("notMeasured"),
       timeLeftForLevel: hasTimeToLevel
         ? `${hourToLevel >= 100 ? hourToLevel : twoDigits(hourToLevel)}:${twoDigits(minuteToLevel)}:${twoDigits(secondToLevel)}`
-        : "Not Measured",
+        : t("notMeasured"),
       status: sessionStatusLabel,
     }),
     [
@@ -109,6 +111,8 @@ function App() {
       hourToLevel,
       minuteToLevel,
       secondToLevel,
+      sessionStatusLabel,
+      t,
     ],
   );
 
@@ -188,34 +192,43 @@ function App() {
       <main className="dashboard-shell">
       <header className="dashboard-header">
         <div>
-          <h1 className="dashboard-title">EXP Tracker Artale</h1>
-          <p className="dashboard-subtitle">Track EXP gain in real time</p>
+          <h1 className="dashboard-title">{t("appTitle")}</h1>
+          <p className="dashboard-subtitle">{t("appSubtitle")}</p>
         </div>
-        <span className={`status-badge status-${trackingStatus}`}>
-          {sessionStatusLabel}
-        </span>
+        <div className="header-actions">
+          <LanguageToggle />
+          <span className={`status-badge status-${trackingStatus}`}>
+            {sessionStatusLabel}
+          </span>
+        </div>
       </header>
 
       <section className="panel">
         <div className="panel-header">
-          <h2>Session Metrics</h2>
-          <p>Live OCR preview and tracked session performance.</p>
+          <h2>{t("sessionMetrics")}</h2>
+          <p>{t("sessionMetricsDesc")}</p>
         </div>
         <div className="metrics-grid metrics-grid-primary">
           <ContentCard
-            title={"Current EXP"}
-            content={hasValidPreviewExp ? numberWithCommas(previewExp) : "Reading OCR..."}
+            title={t("currentExp")}
+            content={hasValidPreviewExp ? numberWithCommas(previewExp) : t("readingOcr")}
             priority="primary"
             muted={!hasValidPreviewExp}
           />
           <ContentCard
-            title={"Gained EXP"}
-            content={hasSession ? numberWithCommas(expGained) : "Not Started"}
+            title={t("gainedExp")}
+            content={hasSession ? numberWithCommas(expGained) : t("notStarted")}
             priority="primary"
             muted={!hasSession}
           />
           <ContentCard
-            title={"Duration"}
+            title={t("exp10min")}
+            content={expRate ? numberWithCommas(expRate.toFixed(0)) : t("notMeasured")}
+            priority="primary"
+            muted={!expRate}
+          />
+          <ContentCard
+            title={t("duration")}
             content={`${twoDigits(minute)}:${twoDigits(second)}`}
             priority="primary"
           />
@@ -223,26 +236,26 @@ function App() {
 
         <div className="metrics-grid metrics-grid-secondary">
           <ContentCard
-            title={"Starting EXP"}
-            content={hasSession ? numberWithCommas(sessionStartExp) : "Not Started"}
+            title={t("expPercent")}
+            content={hasSession ? `${sessionStartPercent}%` : t("notStarted")}
             muted={!hasSession}
           />
           <ContentCard
-            title={"Starting EXP (%)"}
-            content={hasSession ? `${sessionStartPercent}%` : "Not Started"}
+            title={t("startingExp")}
+            content={hasSession ? numberWithCommas(sessionStartExp) : t("notStarted")}
             muted={!hasSession}
           />
           <ContentCard
-            title={"10min EXP"}
-            content={expRate ? numberWithCommas(expRate.toFixed(0)) : "Not Measured"}
-            muted={!expRate}
+            title={t("startingExpPercent")}
+            content={hasSession ? `${sessionStartPercent}%` : t("notStarted")}
+            muted={!hasSession}
           />
           <ContentCard
-            title={"Time Left For a level"}
+            title={t("timeLeftForLevel")}
             content={
               hasTimeToLevel
                 ? `${hourToLevel >= 100 ? hourToLevel : twoDigits(hourToLevel)}:${twoDigits(minuteToLevel)}:${twoDigits(secondToLevel)}`
-                : "Not Measured"
+                : t("notMeasured")
             }
             muted={!hasTimeToLevel}
           />
@@ -251,8 +264,8 @@ function App() {
 
       <section className="panel controls-panel">
         <div className="panel-header">
-          <h2>Session Controls</h2>
-          <p>Stopwatch controls + Document Picture-in-Picture floating stats.</p>
+          <h2>{t("sessionControls")}</h2>
+          <p>{t("sessionControlsDesc")}</p>
         </div>
         <div className="controls-row">
           <button
@@ -260,7 +273,7 @@ function App() {
             onClick={openPip}
             disabled={!isPipSupported}
           >
-            Open Floating Stats
+            {t("openFloatingStats")}
           </button>
           {isIdle && (
             <button
@@ -268,12 +281,12 @@ function App() {
               onClick={handleStart}
               disabled={!hasStream || !hasCropRegion || !hasValidPreviewExp}
             >
-              Start
+              {t("start")}
             </button>
           )}
           {isRunning && (
             <button className="control-btn control-btn-stop" onClick={handleStop}>
-              Stop
+              {t("stop")}
             </button>
           )}
           {isPaused && (
@@ -283,7 +296,7 @@ function App() {
                 onClick={handleContinue}
                 disabled={!hasStream}
               >
-                Continue
+                {t("continue")}
               </button>
             </>
           )}
@@ -292,15 +305,15 @@ function App() {
             onClick={handleReset}
             disabled={!canReset}
           >
-            Reset
+            {t("reset")}
           </button>
         </div>
       </section>
 
       <section className="panel capture-panel">
         <div className="panel-header">
-          <h2>Capture Preview</h2>
-          <p>Select the OCR area and verify live readings before starting.</p>
+          <h2>{t("capturePreview")}</h2>
+          <p>{t("capturePreviewDesc")}</p>
         </div>
         <ScreenShare
           onReading={handleReading}
@@ -312,12 +325,12 @@ function App() {
 
       <section className="panel help-panel">
         <p className="help-copy">
-          1. Share the screen of Artale (entire screen works best). <br />
-          2. Drag over the EXP bar area to include EXP number and percentage. <br />
-          3. OCR preview updates as soon as a valid area is selected. <br />
-          4. Click Start to begin tracking. Use Stop/Continue to pause and
-          resume. <br />
-          5. Reset clears session stats while keeping capture selection available.
+          {t("help1")} <br />
+          {t("help2")} <br />
+          {t("help3")} <br />
+          {t("help4")} <br />
+          {t("help5")} <br />
+          {t("help6")}
         </p>
       </section>
       </main>

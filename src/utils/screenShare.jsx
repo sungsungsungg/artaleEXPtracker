@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import CropSelector from "./screenDrag";
+import { useI18n } from "../i18n/LanguageContext.jsx";
 
 export default function ScreenShare({
   onReading,
@@ -7,6 +8,7 @@ export default function ScreenShare({
   onStreamChange,
   onShareStopped,
 }) {
+  const { t } = useI18n();
   const videoRef = useRef(null);
   const [stream, setStream] = useState(null);
   const [error, setError] = useState("");
@@ -34,7 +36,7 @@ export default function ScreenShare({
       };
     } catch (e) {
       // User canceled or browser blocked
-      setError(e?.message || "Screen share was cancelled/blocked.");
+      setError(e?.message || t("screenShareCancelled"));
     }
   };
 
@@ -62,14 +64,14 @@ export default function ScreenShare({
           onClick={startShare}
           disabled={!!stream}
         >
-          Share screen
+          {t("shareScreen")}
         </button>
         <button
           className="control-btn control-btn-stop"
           onClick={stopShare}
           disabled={!stream}
         >
-          Stop capture
+          {t("stopCapture")}
         </button>
       </div>
     </div>

@@ -1,29 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./overlay.css";
-
-const defaultStats = {
-  currentExp: "0",
-  gainedExp: "0",
-  duration: "00:00",
-  expPercent: "0%",
-  exp10min: "0",
-  timeLeftForLevel: "Not Measured",
-  status: "Idle",
-};
+import { useI18n } from "./i18n/LanguageContext.jsx";
 
 function isInactiveValue(value) {
   const text = String(value ?? "");
   return (
     text === "" ||
-    /NOT STARTED|NOT MEASURED|READING/i.test(text) ||
+    /NOT STARTED|NOT MEASURED|READING|측정 전|측정 안 됨|읽는 중/i.test(text) ||
     text === "0"
   );
 }
 
-function PrimaryMetric({ label, value, emphasize = false }) {
+function PrimaryMetric({ label, value, emphasize = false, highlight = false }) {
   const inactive = isInactiveValue(value);
   return (
-    <article className={`pip-metric ${inactive ? "pip-metric-inactive" : ""}`}>
+    <article
+      className={`pip-metric ${inactive ? "pip-metric-inactive" : ""} ${highlight ? "pip-metric-highlight" : ""}`}
+    >
       <p className="pip-label">{label}</p>
       <p className={`pip-value ${emphasize && !inactive ? "pip-value-accent" : ""}`}>
         {value}
@@ -55,12 +48,35 @@ export default function StatsOverlay({
   onContinue,
   onReset,
 }) {
+  const { t } = useI18n();
+  const defaultStats = useMemo(
+    () => ({
+      currentExp: "0",
+      gainedExp: "0",
+      duration: "00:00",
+      expPercent: "0%",
+      exp10min: "0",
+      timeLeftForLevel: t("notMeasured"),
+      status: t("idle"),
+    }),
+    [t],
+  );
   const [stats, setStats] = useState(incomingStats || defaultStats);
 
   useEffect(() => {
     if (!incomingStats) return;
     setStats(incomingStats);
   }, [incomingStats]);
+
+  useEffect(() => {
+    if (incomingStats) return;
+    setStats((prev) => ({
+      ...defaultStats,
+      ...prev,
+      timeLeftForLevel: prev.timeLeftForLevel ?? defaultStats.timeLeftForLevel,
+      status: prev.status ?? defaultStats.status,
+    }));
+  }, [defaultStats, incomingStats]);
 
   useEffect(() => {
     if (incomingStats) return undefined;
@@ -82,26 +98,26 @@ export default function StatsOverlay({
     <main className="pip-root">
       <header className="pip-header">
         <div>
-          <h1 className="pip-title">EXP Tracker</h1>
-          <p className="pip-subtitle">Floating Stats</p>
+          <h1 className="pip-title">{t("appTitle")}</h1>
+          <p className="pip-subtitle">{t("floatingStats")}</p>
         </div>
-        <span className="pip-status">{stats.status || "Idle"}</span>
+        <span className="pip-status">{stats.status || t("idle")}</span>
       </header>
 
       <section className="pip-primary-grid">
+        <PrimaryMetric label={t("currentExp")} value={stats.currentExp} emphasize />
+        <PrimaryMetric label={t("gainedExp")} value={stats.gainedExp} />
         <PrimaryMetric
-          label="Current EXP"
-          value={stats.currentExp}
+          label={t("exp10min")}
+          value={stats.exp10min}
           emphasize
         />
-        <PrimaryMetric label="Gained EXP" value={stats.gainedExp} />
-        <PrimaryMetric label="Duration" value={stats.duration} />
-        <PrimaryMetric label="EXP %" value={stats.expPercent} />
+        <PrimaryMetric label={t("duration")} value={stats.duration} />
       </section>
 
       <section className="pip-secondary">
-        <SecondaryMetric label="10min EXP" value={stats.exp10min} />
-        <SecondaryMetric label="Time Left" value={stats.timeLeftForLevel} />
+        <SecondaryMetric label={t("expPercent")} value={stats.expPercent} />
+        <SecondaryMetric label={t("timeLeft")} value={stats.timeLeftForLevel} />
       </section>
 
       <section className="pip-controls">
@@ -111,13 +127,13 @@ export default function StatsOverlay({
             onClick={onStart}
             disabled={!canStart}
           >
-            Start
+            {t("start")}
           </button>
         )}
 
         {trackingStatus === "running" && (
           <button className="pip-control-btn pip-control-stop" onClick={onStop}>
-            Stop
+            {t("stop")}
           </button>
         )}
 
@@ -128,7 +144,7 @@ export default function StatsOverlay({
               onClick={onContinue}
               disabled={!canContinue}
             >
-              Continue
+              {t("continue")}
             </button>
           </>
         )}
@@ -137,7 +153,7 @@ export default function StatsOverlay({
           onClick={onReset}
           disabled={!canReset}
         >
-          Reset
+          {t("reset")}
         </button>
       </section>
     </main>
