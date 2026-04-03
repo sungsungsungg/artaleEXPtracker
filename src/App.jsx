@@ -18,7 +18,7 @@ function App() {
   const [sessionStartPercent, setSessionStartPercent] = useState(0);
   const [trackingStatus, setTrackingStatus] = useState("idle");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [hasCropRegion, setHasCropRegion] = useState(false);
+  const [regionStatus, setRegionStatus] = useState({ exp: false, percent: false });
   const [hasStream, setHasStream] = useState(false);
   const {
     isSupported: isPipSupported,
@@ -48,6 +48,7 @@ function App() {
   const hasValidPreviewExp =
     typeof previewExp === "number" && Number.isFinite(previewExp);
   const hasSession = typeof sessionStartExp === "number";
+  const hasRequiredRegions = regionStatus.exp && regionStatus.percent;
   const currentSessionExp = hasSession
     ? (isRunning ? previewExp : sessionCurrentExp) ?? sessionCurrentExp
     : null;
@@ -279,7 +280,7 @@ function App() {
             <button
               className="control-btn control-btn-start"
               onClick={handleStart}
-              disabled={!hasStream || !hasCropRegion || !hasValidPreviewExp}
+              disabled={!hasStream || !hasRequiredRegions || !hasValidPreviewExp}
             >
               {t("start")}
             </button>
@@ -317,7 +318,7 @@ function App() {
         </div>
         <ScreenShare
           onReading={handleReading}
-          onRegionChange={setHasCropRegion}
+          onRegionChange={setRegionStatus}
           onStreamChange={setHasStream}
           onShareStopped={handleShareStopped}
         />
@@ -339,7 +340,7 @@ function App() {
             <StatsOverlay
               stats={floatingStatsPayload}
               trackingStatus={trackingStatus}
-              canStart={isIdle && hasStream && hasCropRegion && hasValidPreviewExp}
+              canStart={isIdle && hasStream && hasRequiredRegions && hasValidPreviewExp}
               canContinue={isPaused && hasStream}
               canReset={canReset}
               onStart={handleStart}
