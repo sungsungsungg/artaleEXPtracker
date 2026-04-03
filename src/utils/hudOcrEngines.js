@@ -299,7 +299,12 @@ export function isPlausibleExp(expValue, lastAcceptedExp = null) {
   if (!Number.isFinite(lastAcceptedExp)) return true;
 
   const delta = expValue - lastAcceptedExp;
-  if (delta < -1000) return false;
+  if (delta < 0) {
+    // Small backward moves are usually OCR noise.
+    // Large backward moves can represent a level-up reset.
+    const dropRatio = Math.abs(delta) / Math.max(lastAcceptedExp, 1);
+    return dropRatio >= 0.4;
+  }
   const maxJump = Math.max(5_000_000, Math.floor(lastAcceptedExp * 0.1));
   if (delta > maxJump) return false;
   return true;
@@ -324,4 +329,51 @@ export function updateStableNumericValue(stabilityRef, nextValue) {
 
   stabilityRef.current = { pending: null, accepted: nextValue };
   return nextValue;
+}
+
+export function updateStableExpValue(
+  stabilityRef,
+  nextValue,
+  lastAcceptedExp = null,
+) {
+  if (!Number.isFinite(nextValue)) return null;
+  const prev = stabilityRef.current ?? { pending: null, accepted: null, count: 0 };
+
+  if (!Number.isFinite(lastAcceptedExp)) {
+    if (prev.pending === nextValue) {
+      const count = (prev.count ?? 1) + 1;
+      stabilityRef.current = { pending: nextValue, accepted: prev.accepted, count };
+      if (count >= 2) {
+        stabilityRef.current = { pending: null, accepted: nextValue, count: 0 };
+        return nextValue;
+      }
+      return null;
+    }
+    stabilityRef.current = { pending: nextValue, accepted: prev.accepted, count: 1 };
+    return null;
+  }
+
+  const delta = nextValue - lastAcceptedExp;
+  if (delta === 0) return lastAcceptedExp;
+
+  if (delta > 0) {
+    // Forward EXP updates should feel live; plausibility checks already guard huge jumps.
+    stabilityRef.current = { pending: null, accepted: nextValue, count: 0 };
+    return nextValue;
+  }
+
+  // Backward values (potential level-up reset) require repeated confirmation.
+  const tolerance = Math.max(2000, Math.floor(lastAcceptedExp * 0.002));
+  if (Number.isFinite(prev.pending) && Math.abs(prev.pending - nextValue) <= tolerance) {
+    const count = (prev.count ?? 1) + 1;
+    stabilityRef.current = { pending: prev.pending, accepted: prev.accepted, count };
+    if (count >= 2) {
+      stabilityRef.current = { pending: null, accepted: nextValue, count: 0 };
+      return nextValue;
+    }
+    return null;
+  }
+
+  stabilityRef.current = { pending: nextValue, accepted: prev.accepted, count: 1 };
+  return null;
 }
