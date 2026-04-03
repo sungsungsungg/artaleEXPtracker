@@ -9,6 +9,7 @@ import {
   preprocessExpRegionVariants,
   recognizeExpWithTesseractVariants,
   recognizePercentWithTesseract,
+  updateStableExpValue,
   updateStableNumericValue,
 } from "./hudOcrEngines";
 
@@ -466,12 +467,13 @@ export default function CropSelector({
             expResult &&
             isPlausibleExp(expResult.expValue, acceptedRef.current.expValue)
           ) {
-            const stableExp = updateStableNumericValue(
+            const stableForwardExp = updateStableExpValue(
               expStabilityRef,
               expResult.expValue,
+              acceptedRef.current.expValue,
             );
-            if (Number.isFinite(stableExp)) {
-              acceptedRef.current.expValue = stableExp;
+            if (Number.isFinite(stableForwardExp)) {
+              acceptedRef.current.expValue = stableForwardExp;
               updated = true;
             }
           }
