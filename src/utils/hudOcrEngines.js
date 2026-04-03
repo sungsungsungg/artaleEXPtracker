@@ -305,8 +305,8 @@ export function isPlausibleExp(expValue, lastAcceptedExp = null) {
     const dropRatio = Math.abs(delta) / Math.max(lastAcceptedExp, 1);
     return dropRatio >= 0.4;
   }
-  const maxJump = Math.max(5_000_000, Math.floor(lastAcceptedExp * 0.1));
-  if (delta > maxJump) return false;
+  // Do not hard-reject large forward jumps here; those are handled in
+  // updateStableExpValue with repeat-confirmation to avoid lock-ups.
   return true;
 }
 
@@ -357,9 +357,32 @@ export function updateStableExpValue(
   if (delta === 0) return lastAcceptedExp;
 
   if (delta > 0) {
-    // Forward EXP updates should feel live; plausibility checks already guard huge jumps.
-    stabilityRef.current = { pending: null, accepted: nextValue, count: 0 };
-    return nextValue;
+    const largeJumpThreshold = Math.max(
+      5_000_000,
+      Math.floor(lastAcceptedExp * 0.1),
+    );
+
+    if (delta <= largeJumpThreshold) {
+      // Normal forward updates should feel live.
+      stabilityRef.current = { pending: null, accepted: nextValue, count: 0 };
+      return nextValue;
+    }
+
+    // For unusually large forward jumps, require repeated confirmation
+    // instead of hard-rejecting (prevents permanent stalls after bad outliers).
+    const tolerance = Math.max(5000, Math.floor(nextValue * 0.005));
+    if (Number.isFinite(prev.pending) && Math.abs(prev.pending - nextValue) <= tolerance) {
+      const count = (prev.count ?? 1) + 1;
+      stabilityRef.current = { pending: prev.pending, accepted: prev.accepted, count };
+      if (count >= 2) {
+        stabilityRef.current = { pending: null, accepted: nextValue, count: 0 };
+        return nextValue;
+      }
+      return null;
+    }
+
+    stabilityRef.current = { pending: nextValue, accepted: prev.accepted, count: 1 };
+    return null;
   }
 
   // Backward values (potential level-up reset) require repeated confirmation.
