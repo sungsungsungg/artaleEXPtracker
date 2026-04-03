@@ -253,6 +253,10 @@ export default function CropSelector({
   const clearPreviewCanvas = (targetRef) => {
     const target = targetRef.current;
     if (!target) return;
+    if (target.width !== 160 || target.height !== 28) {
+      target.width = 160;
+      target.height = 28;
+    }
     const tctx = target.getContext("2d");
     if (!tctx) return;
     tctx.clearRect(0, 0, target.width, target.height);
@@ -582,11 +586,21 @@ export default function CropSelector({
       <div className="ocr-read-preview-grid">
         <div className="ocr-read-preview-card">
           <p className="ocr-read-preview-label">{t("selectExpRegion")}</p>
-          <canvas ref={expPreviewCanvasRef} className="ocr-read-preview-canvas" />
+          <canvas
+            ref={expPreviewCanvasRef}
+            className="ocr-read-preview-canvas"
+            width={160}
+            height={28}
+          />
         </div>
         <div className="ocr-read-preview-card">
           <p className="ocr-read-preview-label">{t("selectPercentRegion")}</p>
-          <canvas ref={pctPreviewCanvasRef} className="ocr-read-preview-canvas" />
+          <canvas
+            ref={pctPreviewCanvasRef}
+            className="ocr-read-preview-canvas"
+            width={160}
+            height={28}
+          />
         </div>
       </div>
 
