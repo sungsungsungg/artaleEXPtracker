@@ -5,39 +5,55 @@ import {
   getRawRegionCanvas,
   isPlausibleExp,
   isPlausiblePercent,
-  preprocessOcrRegion,
   preprocessExpRegionVariants,
   recognizeExpWithTesseractVariants,
-  recognizePercentWithTesseract,
+  recognizePercentWithTesseractVariants,
   updateStableExpValue,
-  updateStableNumericValue,
+  updateStablePercentValue,
 } from "./hudOcrEngines";
 
 const EXP_PREPROCESS_VARIANTS = [
   {
-    id: "gray-2x",
+    id: "brightness-top15-2x",
+    preprocessMode: "brightness",
     upscaleFactor: 2,
-    contrast: 1.1,
-    applyThreshold: false,
     invert: false,
+    useAdaptiveBrightThreshold: true,
+    brightTopPercent: 0.15,
+    secondBrightBand: 24,
+    nearWhiteTolerance: 36,
     trimXRatio: 0,
     trimYRatio: 0,
   },
   {
-    id: "light-threshold-2x",
-    upscaleFactor: 2,
-    threshold: 175,
-    contrast: 1.18,
-    applyThreshold: true,
-    invert: false,
-    trimXRatio: 0,
-    trimYRatio: 0,
-  },
-  {
-    id: "mild-threshold-3x",
+    id: "brightness-top18-3x",
+    preprocessMode: "brightness",
     upscaleFactor: 3,
-    threshold: 168,
-    contrast: 1.25,
+    invert: false,
+    useAdaptiveBrightThreshold: true,
+    brightTopPercent: 0.18,
+    secondBrightBand: 20,
+    nearWhiteTolerance: 34,
+    trimXRatio: 0,
+    trimYRatio: 0,
+  },
+  {
+    id: "brightness-fixed-2x",
+    preprocessMode: "brightness",
+    upscaleFactor: 2,
+    invert: false,
+    useAdaptiveBrightThreshold: false,
+    brightThreshold: 205,
+    secondBrightBand: 18,
+    nearWhiteTolerance: 34,
+    trimXRatio: 0,
+    trimYRatio: 0,
+  },
+  {
+    id: "light-threshold-2x-fallback",
+    upscaleFactor: 2,
+    threshold: 172,
+    contrast: 1.16,
     applyThreshold: true,
     invert: false,
     trimXRatio: 0,
@@ -45,15 +61,15 @@ const EXP_PREPROCESS_VARIANTS = [
   },
 ];
 
-const PERCENT_PREPROCESS = {
-  upscaleFactor: 2,
-  threshold: 155,
-  contrast: 1.35,
-  invert: false,
-  applyThreshold: true,
-  trimXRatio: 0.02,
-  trimYRatio: 0.06,
-};
+const PERCENT_PREPROCESS_VARIANTS = [
+  {
+    id: "pct-raw-2x",
+    upscaleFactor: 2,
+    skipProcessing: true,
+    trimXRatio: 0.01,
+    trimYRatio: 0.03,
+  },
+];
 
 function isValidRegion(region) {
   return !!region && region.width >= 8 && region.height >= 8;
@@ -104,11 +120,17 @@ export default function CropSelector({
     EXP_PREPROCESS_VARIANTS.map(() => ({ current: null })),
   );
   const pctRawCanvasRef = useRef(null);
-  const pctProcessedCanvasRef = useRef(null);
+  const pctVariantCanvasRefs = useRef(
+    PERCENT_PREPROCESS_VARIANTS.map(() => ({ current: null })),
+  );
   const expPreviewCanvasRef = useRef(null);
+  const expOptimizedPreviewCanvasRef = useRef(null);
   const pctPreviewCanvasRef = useRef(null);
+  const pctOptimizedPreviewCanvasRef = useRef(null);
   const expPreviewRawCanvasRef = useRef(null);
   const pctPreviewRawCanvasRef = useRef(null);
+  const expPreviewSizeRef = useRef({ width: 160, height: 28 });
+  const pctPreviewSizeRef = useRef({ width: 160, height: 28 });
 
   const expWorkerRef = useRef(null);
   const pctWorkerRef = useRef(null);
@@ -178,7 +200,7 @@ export default function CropSelector({
         tessedit_pageseg_mode: PSM.SINGLE_LINE,
       });
       await pctWorker.setParameters({
-        tessedit_char_whitelist: "0123456789.",
+        tessedit_char_whitelist: "0123456789.%",
         tessedit_pageseg_mode: PSM.SINGLE_LINE,
       });
 
@@ -228,19 +250,19 @@ export default function CropSelector({
     drawRegion(percentRegion, "#ffb24c", "%");
   };
 
-  const drawPreviewCanvas = (sourceCanvas, targetRef) => {
+  const drawPreviewCanvas = (sourceCanvas, targetRef, fixedSize = null) => {
     const target = targetRef.current;
     if (!target || !sourceCanvas) return;
     const tctx = target.getContext("2d");
     if (!tctx) return;
 
     // Preview should be a truthful pixel-preserving copy of OCR input.
-    if (
-      target.width !== sourceCanvas.width ||
-      target.height !== sourceCanvas.height
-    ) {
-      target.width = sourceCanvas.width;
-      target.height = sourceCanvas.height;
+    const drawWidth = fixedSize?.width ?? sourceCanvas.width;
+    const drawHeight = fixedSize?.height ?? sourceCanvas.height;
+
+    if (target.width !== drawWidth || target.height !== drawHeight) {
+      target.width = drawWidth;
+      target.height = drawHeight;
     }
 
     tctx.imageSmoothingEnabled = false;
@@ -447,6 +469,10 @@ export default function CropSelector({
         });
         if (expRawPreview) {
           drawPreviewCanvas(expRawPreview, expPreviewCanvasRef);
+          expPreviewSizeRef.current = {
+            width: expPreviewCanvasRef.current?.width ?? 160,
+            height: expPreviewCanvasRef.current?.height ?? 28,
+          };
         }
 
         const expVariants = preprocessExpRegionVariants({
@@ -463,6 +489,13 @@ export default function CropSelector({
             expVariants,
             acceptedRef.current.expValue,
           );
+          if (expResult?.canvas) {
+            drawPreviewCanvas(
+              expResult.canvas,
+              expOptimizedPreviewCanvasRef,
+              expPreviewSizeRef.current,
+            );
+          }
           if (
             expResult &&
             isPlausibleExp(expResult.expValue, acceptedRef.current.expValue)
@@ -480,6 +513,7 @@ export default function CropSelector({
         }
       } else {
         clearPreviewCanvas(expPreviewCanvasRef);
+        clearPreviewCanvas(expOptimizedPreviewCanvasRef);
       }
 
       if (safePctRegion) {
@@ -491,37 +525,72 @@ export default function CropSelector({
         });
         if (pctRawPreview) {
           drawPreviewCanvas(pctRawPreview, pctPreviewCanvasRef);
+          pctPreviewSizeRef.current = {
+            width: pctPreviewCanvasRef.current?.width ?? 160,
+            height: pctPreviewCanvasRef.current?.height ?? 28,
+          };
         }
 
-        const pctCanvas = preprocessOcrRegion({
+        const pctVariants = preprocessExpRegionVariants({
           frameCanvas,
           region: safePctRegion,
           rawCanvasRef: pctRawCanvasRef,
-          processedCanvasRef: pctProcessedCanvasRef,
-          config: PERCENT_PREPROCESS,
+          variantCanvasRefs: pctVariantCanvasRefs.current,
+          variants: PERCENT_PREPROCESS_VARIANTS,
         });
 
-        if (pctCanvas) {
-          const pctResult = await recognizePercentWithTesseract(pctWorker, pctCanvas);
-          if (isPlausiblePercent(pctResult.expPercent)) {
-            const stablePct = updateStableNumericValue(
-              pctStabilityRef,
-              pctResult.expPercent,
+        if (pctVariants.length) {
+          const pctResult = await recognizePercentWithTesseractVariants(
+            pctWorker,
+            pctVariants,
+            acceptedRef.current.expPercent,
+          );
+          if (pctResult?.canvas) {
+            drawPreviewCanvas(
+              pctResult.canvas,
+              pctOptimizedPreviewCanvasRef,
+              pctPreviewSizeRef.current,
             );
-            if (Number.isFinite(stablePct)) {
-              acceptedRef.current.expPercent = stablePct;
-              updated = true;
+          }
+          if (pctResult) {
+            console.debug("Percent OCR", {
+              raw: pctResult.rawText,
+              sanitized: pctResult.sanitizedPercentText ?? pctResult.sanitizedText,
+              parsed: pctResult.expPercent,
+              confidence: pctResult.confidence,
+              variant: pctResult.variantId,
+            });
+            if (isPlausiblePercent(pctResult.expPercent)) {
+              const stablePct = updateStablePercentValue(
+                pctStabilityRef,
+                pctResult.expPercent,
+                acceptedRef.current.expPercent,
+              );
+              if (Number.isFinite(stablePct)) {
+                acceptedRef.current.expPercent = stablePct;
+                updated = true;
+              }
             }
           }
         }
       } else {
         clearPreviewCanvas(pctPreviewCanvasRef);
+        clearPreviewCanvas(pctOptimizedPreviewCanvasRef);
       }
 
       if (updated) {
         onReading?.({
           expNumber: acceptedRef.current.expValue,
           pct: acceptedRef.current.expPercent,
+        });
+      }
+
+      if (safeExpRegion && !updated) {
+        // Keep visibility into why metric can differ from what preview seems to show.
+        // This helps tune variant scoring and outlier gates.
+        console.debug("OCR accepted snapshot", {
+          acceptedExp: acceptedRef.current.expValue,
+          acceptedPercent: acceptedRef.current.expPercent,
         });
       }
     };
@@ -588,21 +657,49 @@ export default function CropSelector({
       <div className="ocr-read-preview-grid">
         <div className="ocr-read-preview-card">
           <p className="ocr-read-preview-label">{t("selectExpRegion")}</p>
-          <canvas
-            ref={expPreviewCanvasRef}
-            className="ocr-read-preview-canvas"
-            width={160}
-            height={28}
-          />
+          <div className="ocr-read-preview-compare">
+            <div className="ocr-read-preview-slot">
+              <span className="ocr-read-preview-slot-label">Raw</span>
+              <canvas
+                ref={expPreviewCanvasRef}
+                className="ocr-read-preview-canvas"
+                width={160}
+                height={28}
+              />
+            </div>
+            <div className="ocr-read-preview-slot">
+              <span className="ocr-read-preview-slot-label">Optimized</span>
+              <canvas
+                ref={expOptimizedPreviewCanvasRef}
+                className="ocr-read-preview-canvas"
+                width={160}
+                height={28}
+              />
+            </div>
+          </div>
         </div>
         <div className="ocr-read-preview-card">
           <p className="ocr-read-preview-label">{t("selectPercentRegion")}</p>
-          <canvas
-            ref={pctPreviewCanvasRef}
-            className="ocr-read-preview-canvas"
-            width={160}
-            height={28}
-          />
+          <div className="ocr-read-preview-compare">
+            <div className="ocr-read-preview-slot">
+              <span className="ocr-read-preview-slot-label">Raw</span>
+              <canvas
+                ref={pctPreviewCanvasRef}
+                className="ocr-read-preview-canvas"
+                width={160}
+                height={28}
+              />
+            </div>
+            <div className="ocr-read-preview-slot">
+              <span className="ocr-read-preview-slot-label">Optimized</span>
+              <canvas
+                ref={pctOptimizedPreviewCanvasRef}
+                className="ocr-read-preview-canvas"
+                width={160}
+                height={28}
+              />
+            </div>
+          </div>
         </div>
       </div>
 

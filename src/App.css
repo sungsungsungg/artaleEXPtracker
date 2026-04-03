@@ -262,6 +262,26 @@ body {
   overflow-x: auto;
 }
 
+.ocr-read-preview-compare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.ocr-read-preview-slot {
+  display: grid;
+  gap: 0.25rem;
+  min-width: max-content;
+}
+
+.ocr-read-preview-slot-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #8ea2c1;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 .ocr-read-preview-label {
   margin: 0;
   font-size: 0.73rem;
@@ -515,6 +535,10 @@ body {
   }
 
   .ocr-read-preview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ocr-read-preview-compare {
     grid-template-columns: 1fr;
   }
 
