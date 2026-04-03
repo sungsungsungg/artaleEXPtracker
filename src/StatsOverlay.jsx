@@ -47,6 +47,7 @@ export default function StatsOverlay({
   onStop,
   onContinue,
   onReset,
+  captureAlert = "",
 }) {
   const { t } = useI18n();
   const defaultStats = useMemo(
@@ -103,6 +104,10 @@ export default function StatsOverlay({
         </div>
         <span className="pip-status">{stats.status || t("idle")}</span>
       </header>
+
+      {captureAlert ? (
+        <div className="pip-capture-alert">{captureAlert}</div>
+      ) : null}
 
       <section className="pip-primary-grid">
         <PrimaryMetric label={t("currentExp")} value={stats.currentExp} emphasize />

@@ -20,6 +20,7 @@ function App() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [regionStatus, setRegionStatus] = useState({ exp: false, percent: false });
   const [hasStream, setHasStream] = useState(false);
+  const [captureAlert, setCaptureAlert] = useState("");
   const {
     isSupported: isPipSupported,
     mountNode: pipMountNode,
@@ -321,6 +322,7 @@ function App() {
           onRegionChange={setRegionStatus}
           onStreamChange={setHasStream}
           onShareStopped={handleShareStopped}
+          onCaptureStatusChange={setCaptureAlert}
         />
       </section>
 
@@ -347,6 +349,7 @@ function App() {
               onStop={handleStop}
               onContinue={handleContinue}
               onReset={handleReset}
+              captureAlert={captureAlert}
             />,
             pipMountNode,
           )

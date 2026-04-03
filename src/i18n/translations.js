@@ -61,6 +61,9 @@ export const translations = {
     languageKorean: "한국어",
     languageSelectorAria: "Language selector",
     screenShareCancelled: "Screen share was cancelled or blocked.",
+    screenShareEndedUnexpectedly:
+      "Screen share ended unexpectedly (browser/OS stopped capture). Click Re-share to continue.",
+    reShareScreen: "Re-share screen",
   },
   ko: {
     appTitle: "경험치 추적기",
@@ -121,5 +124,8 @@ export const translations = {
     languageKorean: "한국어",
     languageSelectorAria: "언어 선택",
     screenShareCancelled: "화면 공유가 취소되었거나 차단되었습니다.",
+    screenShareEndedUnexpectedly:
+      "화면 공유가 예기치 않게 종료되었습니다(브라우저/OS에서 캡처 중지). 계속하려면 화면 다시 공유를 누르세요.",
+    reShareScreen: "화면 다시 공유",
   },
 };
