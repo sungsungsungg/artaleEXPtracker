@@ -15,6 +15,7 @@ const DEFAULT_PREPROCESS = {
   fourthBrightBand: 50, // include one more soft edge band
   nearWhiteTolerance: 38, // keep mostly neutral/white pixels
   thinStrokePasses: 0,
+  skipProcessing: false,
 };
 
 function ensureCanvasSize(canvasRef, width, height) {
@@ -256,6 +257,10 @@ export function preprocessOcrRegion({
 
   setNearestNeighbor(processedCtx);
   processedCtx.drawImage(rawCanvas, 0, 0, upW, upH);
+  if (cfg.skipProcessing) {
+    return processedCanvas;
+  }
+
   if (cfg.preprocessMode === "brightness") {
     preprocessBrightnessMask(processedCanvas, cfg);
   } else {
