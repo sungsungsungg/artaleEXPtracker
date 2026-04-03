@@ -245,6 +245,45 @@ body {
   gap: 0.75rem;
 }
 
+.ocr-read-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.7rem;
+}
+
+.ocr-read-preview-card {
+  border-radius: 10px;
+  border: 1px solid rgba(123, 144, 175, 0.28);
+  background: rgba(16, 23, 34, 0.7);
+  padding: 0.52rem 0.62rem;
+  display: grid;
+  gap: 0.4rem;
+  overflow-x: auto;
+}
+
+.ocr-read-preview-label {
+  margin: 0;
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #93a5c2;
+}
+
+.ocr-read-preview-canvas {
+  width: auto;
+  max-width: none;
+  height: auto;
+  min-height: 24px;
+  border-radius: 7px;
+  border: 1px solid rgba(124, 141, 168, 0.35);
+  background: rgba(8, 12, 18, 0.85);
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  display: block;
+}
+
 .capture-actions {
   display: flex;
   gap: 0.65rem;
@@ -258,6 +297,71 @@ body {
   color: #ffb3b3;
   padding: 0.6rem 0.75rem;
   font-size: 0.88rem;
+}
+
+.ocr-region-toolbar {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.ocr-mode-toggle {
+  display: inline-flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.ocr-mode-btn {
+  border: 1px solid rgba(124, 141, 168, 0.35);
+  border-radius: 10px;
+  background: rgba(21, 29, 41, 0.88);
+  color: #dbe9ff;
+  height: 36px;
+  padding: 0 0.8rem;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+.ocr-mode-btn:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+
+.ocr-mode-btn-active-exp {
+  background: rgba(46, 126, 214, 0.4);
+  border-color: rgba(93, 163, 240, 0.7);
+}
+
+.ocr-mode-btn-active-percent {
+  background: rgba(204, 133, 41, 0.35);
+  border-color: rgba(235, 165, 79, 0.7);
+}
+
+.ocr-region-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.ocr-region-chip {
+  font-size: 0.76rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.2rem 0.58rem;
+  border: 1px solid transparent;
+}
+
+.ocr-region-chip.set {
+  color: #b6f6d2;
+  background: rgba(31, 157, 85, 0.22);
+  border-color: rgba(58, 191, 115, 0.42);
+}
+
+.ocr-region-chip.unset {
+  color: #ffd2bf;
+  background: rgba(195, 95, 56, 0.22);
+  border-color: rgba(227, 124, 78, 0.45);
 }
 
 .zoom-toolbar {
@@ -407,6 +511,10 @@ body {
 
   .metrics-grid-primary,
   .metrics-grid-secondary {
+    grid-template-columns: 1fr;
+  }
+
+  .ocr-read-preview-grid {
     grid-template-columns: 1fr;
   }
 
