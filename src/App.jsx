@@ -589,7 +589,7 @@ function App() {
               onStop={handleStop}
               onContinue={handleContinue}
               onReset={handleReset}
-              buffReminder={buffReminder}
+              onSetBuffTracking={setBuffTrackingEnabled}
               captureAlert={captureAlert}
             />,
             pipMountNode,
