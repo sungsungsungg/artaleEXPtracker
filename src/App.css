@@ -344,6 +344,15 @@ body {
   min-width: 84px;
 }
 
+.buff-slider-group {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 148px;
+  font-size: 0.76rem;
+  color: #9fb0ca;
+  font-weight: 600;
+}
+
 .buff-input {
   width: 84px;
   border-radius: 10px;
@@ -357,6 +366,16 @@ body {
 .buff-input:focus {
   border-color: rgba(94, 151, 222, 0.72);
   box-shadow: 0 0 0 3px rgba(56, 120, 205, 0.18);
+}
+
+.buff-volume-slider {
+  width: 148px;
+  accent-color: #45be78;
+}
+
+.buff-volume-value {
+  font-size: 0.78rem;
+  color: #edf4ff;
 }
 
 .buff-config-hint {
@@ -676,11 +695,13 @@ body {
 
   .buff-toggle,
   .buff-save-btn,
-  .buff-input {
+  .buff-input,
+  .buff-volume-slider {
     width: 100%;
   }
 
-  .buff-input-group {
+  .buff-input-group,
+  .buff-slider-group {
     min-width: 0;
     flex: 1 1 110px;
   }
