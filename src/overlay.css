@@ -146,6 +146,58 @@ body,
   font-weight: 600;
 }
 
+.pip-buff {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid rgba(129, 154, 194, 0.18);
+  border-radius: 9px;
+  padding: 7px 8px;
+  background: rgba(20, 30, 45, 0.62);
+}
+
+.pip-buff-alert {
+  border: 1px solid rgba(88, 221, 149, 0.65);
+  background: linear-gradient(160deg, rgba(40, 90, 62, 0.92), rgba(20, 44, 34, 0.94));
+  animation: pipBuffPulse 1s ease-in-out infinite;
+}
+
+.pip-buff-label {
+  margin: 0;
+  font-size: 9px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #96aac7;
+  font-weight: 600;
+}
+
+.pip-buff-countdown {
+  margin: 2px 0 0;
+  font-size: 18px;
+  line-height: 1.1;
+  font-weight: 760;
+  color: #f3f8ff;
+}
+
+.pip-buff-side {
+  display: grid;
+  justify-items: end;
+  gap: 5px;
+}
+
+.pip-buff-status {
+  font-size: 10px;
+  font-weight: 700;
+  color: #b9cceb;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.pip-buff-status-alert {
+  color: #dfffe9;
+}
+
 .pip-controls {
   display: flex;
   gap: 6px;
@@ -190,4 +242,14 @@ body,
 
 .pip-control-reset {
   background: #6a737d;
+}
+
+@keyframes pipBuffPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(89, 230, 152, 0.08);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(89, 230, 152, 0.2), 0 0 18px rgba(63, 204, 127, 0.32);
+  }
 }

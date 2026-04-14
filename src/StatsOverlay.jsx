@@ -47,6 +47,7 @@ export default function StatsOverlay({
   onStop,
   onContinue,
   onReset,
+  buffReminder,
   captureAlert = "",
 }) {
   const { t } = useI18n();
@@ -59,6 +60,9 @@ export default function StatsOverlay({
       exp10min: "0",
       timeLeftForLevel: t("notMeasured"),
       status: t("idle"),
+      buffCountdown: "00:00",
+      buffStatus: t("buffIdle"),
+      buffIsDue: false,
     }),
     [t],
   );
@@ -123,6 +127,18 @@ export default function StatsOverlay({
       <section className="pip-secondary">
         <SecondaryMetric label={t("expPercent")} value={stats.expPercent} />
         <SecondaryMetric label={t("timeLeft")} value={stats.timeLeftForLevel} />
+      </section>
+
+      <section className={`pip-buff ${stats.buffIsDue ? "pip-buff-alert" : ""}`}>
+        <div>
+          <p className="pip-buff-label">{t("nextBuffIn")}</p>
+          <p className="pip-buff-countdown">{stats.buffCountdown}</p>
+        </div>
+        <div className="pip-buff-side">
+          <span className={`pip-buff-status ${stats.buffIsDue ? "pip-buff-status-alert" : ""}`}>
+            {buffReminder?.status || stats.buffStatus}
+          </span>
+        </div>
       </section>
 
       <section className="pip-controls">
