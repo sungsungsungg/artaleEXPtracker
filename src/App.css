@@ -134,6 +134,11 @@ body {
   box-shadow: inset 0 1px 0 rgba(194, 212, 240, 0.08);
 }
 
+.metric-card-highlight {
+  border-color: rgba(82, 214, 145, 0.65);
+  box-shadow: 0 0 0 1px rgba(82, 214, 145, 0.16), 0 0 24px rgba(39, 196, 110, 0.24);
+}
+
 .metric-label {
   margin: 0;
   font-size: 0.78rem;
@@ -238,6 +243,136 @@ body {
 
 .capture-panel {
   padding-top: 0.95rem;
+}
+
+.buff-panel {
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.buff-panel-alert {
+  border-color: rgba(70, 216, 132, 0.72);
+  box-shadow: 0 0 0 1px rgba(68, 201, 124, 0.22), 0 16px 34px rgba(0, 0, 0, 0.25);
+  animation: buffPulse 1.1s ease-in-out infinite;
+}
+
+.buff-panel {
+  padding-top: 0.85rem;
+  padding-bottom: 0.9rem;
+}
+
+.buff-compact {
+  border-radius: 14px;
+  border: 1px solid rgba(136, 151, 177, 0.18);
+  background: rgba(17, 24, 35, 0.54);
+  padding: 0.8rem 0.9rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.buff-summary {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.buff-stat {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 120px;
+}
+
+.buff-stat-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #97a7c0;
+  font-weight: 650;
+}
+
+.buff-stat-value {
+  font-size: 1.15rem;
+  line-height: 1.1;
+  color: #f0f6ff;
+  font-weight: 750;
+}
+
+.buff-controls-inline {
+  display: flex;
+  align-items: end;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.buff-config-inline {
+  display: flex;
+  align-items: end;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.buff-toggle {
+  min-width: 136px;
+  height: 40px;
+  border: 0;
+  border-radius: 10px;
+  padding: 0 0.9rem;
+  color: #f5f9ff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s ease, opacity 0.2s ease, background-color 0.2s ease;
+}
+
+.buff-toggle:hover {
+  transform: translateY(-1px);
+}
+
+.buff-toggle-on {
+  background: #1f9d55;
+}
+
+.buff-toggle-off {
+  background: #56606c;
+}
+
+.buff-input-group {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.76rem;
+  color: #9fb0ca;
+  font-weight: 600;
+  min-width: 84px;
+}
+
+.buff-input {
+  width: 84px;
+  border-radius: 10px;
+  border: 1px solid rgba(123, 144, 175, 0.34);
+  background: rgba(11, 16, 24, 0.9);
+  color: #eef4ff;
+  padding: 0.55rem 0.65rem;
+  outline: none;
+}
+
+.buff-input:focus {
+  border-color: rgba(94, 151, 222, 0.72);
+  box-shadow: 0 0 0 3px rgba(56, 120, 205, 0.18);
+}
+
+.buff-config-hint {
+  margin: 0;
+  color: #93a4be;
+  font-size: 0.78rem;
+}
+
+@keyframes buffPulse {
+  0%,
+  100% {
+    background: linear-gradient(165deg, rgba(35, 44, 61, 0.88), rgba(22, 28, 39, 0.9));
+  }
+  50% {
+    background: linear-gradient(165deg, rgba(28, 68, 48, 0.92), rgba(20, 42, 33, 0.94));
+  }
 }
 
 .capture-shell {
@@ -532,6 +667,22 @@ body {
   .metrics-grid-primary,
   .metrics-grid-secondary {
     grid-template-columns: 1fr;
+  }
+
+  .buff-controls-inline,
+  .buff-config-inline {
+    align-items: stretch;
+  }
+
+  .buff-toggle,
+  .buff-save-btn,
+  .buff-input {
+    width: 100%;
+  }
+
+  .buff-input-group {
+    min-width: 0;
+    flex: 1 1 110px;
   }
 
   .ocr-read-preview-grid {

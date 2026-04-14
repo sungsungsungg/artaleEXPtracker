@@ -9,6 +9,9 @@ import usePip from "./hooks/usePip";
 import { useI18n } from "./i18n/LanguageContext.jsx";
 import LanguageToggle from "./components/LanguageToggle.jsx";
 
+const DEFAULT_BUFF_INTERVAL_SECONDS = 4 * 60 + 30;
+const BUFF_ALERT_SECONDS = 5;
+
 function App() {
   const { t } = useI18n();
   const [previewExp, setPreviewExp] = useState(null);
@@ -21,13 +24,23 @@ function App() {
   const [regionStatus, setRegionStatus] = useState({ exp: false, percent: false });
   const [hasStream, setHasStream] = useState(false);
   const [captureAlert, setCaptureAlert] = useState("");
+  const [buffTrackingEnabled, setBuffTrackingEnabled] = useState(true);
+  const [buffIntervalSeconds, setBuffIntervalSeconds] = useState(
+    DEFAULT_BUFF_INTERVAL_SECONDS,
+  );
+  const [buffMinutesInput, setBuffMinutesInput] = useState(
+    Math.floor(DEFAULT_BUFF_INTERVAL_SECONDS / 60),
+  );
+  const [buffSecondsInput, setBuffSecondsInput] = useState(
+    DEFAULT_BUFF_INTERVAL_SECONDS % 60,
+  );
   const {
     isSupported: isPipSupported,
     mountNode: pipMountNode,
     openPip,
   } = usePip({
     width: 380,
-    height: 300,
+    height: 360,
     title: t("floatingStats"),
   });
 
@@ -38,6 +51,21 @@ function App() {
   }
   function twoDigits(n) {
     return String(n).padStart(2, "0");
+  }
+  function formatClock(totalSeconds) {
+    const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    const seconds = safeSeconds % 60;
+
+    if (hours > 0) {
+      return `${twoDigits(hours)}:${twoDigits(minutes)}:${twoDigits(seconds)}`;
+    }
+
+    return `${twoDigits(minutes)}:${twoDigits(seconds)}`;
+  }
+  function clampBuffInterval(totalSeconds) {
+    return Math.min(59 * 60 + 59, Math.max(30, totalSeconds));
   }
 
   // ---- derived values (safe guards) ----
@@ -89,6 +117,34 @@ function App() {
     timeLeftSec && Number.isFinite(timeLeftSec) && timeLeftSec > 0;
   const canReset = hasSession || elapsedSeconds > 0 || !isIdle;
   const sessionStatusLabel = t(trackingStatus);
+  const buffCycleSecond =
+    isRunning && buffTrackingEnabled ? elapsedSeconds % buffIntervalSeconds : 0;
+  const buffSecondsLeft = isRunning && buffTrackingEnabled
+    ? Math.max(0, buffIntervalSeconds - buffCycleSecond)
+    : buffIntervalSeconds;
+  const buffIsDue =
+    buffTrackingEnabled &&
+    isRunning &&
+    elapsedSeconds >= buffIntervalSeconds &&
+    buffCycleSecond < BUFF_ALERT_SECONDS;
+  const buffStatusLabel = !buffTrackingEnabled
+    ? t("buffOff")
+    : buffIsDue
+      ? t("buffDueNow")
+      : isRunning
+        ? t("buffTracking")
+        : isPaused
+          ? t("buffPaused")
+          : t("buffIdle");
+  const buffReminder = useMemo(
+    () => ({
+      countdown: buffTrackingEnabled ? formatClock(buffSecondsLeft) : t("buffOff"),
+      interval: formatClock(buffIntervalSeconds),
+      status: buffStatusLabel,
+      isDue: buffIsDue,
+    }),
+    [buffIntervalSeconds, buffIsDue, buffSecondsLeft, buffStatusLabel, buffTrackingEnabled, t],
+  );
   const floatingStatsPayload = useMemo(
     () => ({
       currentExp: numberWithCommas(previewExp ?? 0),
@@ -100,6 +156,10 @@ function App() {
         ? `${hourToLevel >= 100 ? hourToLevel : twoDigits(hourToLevel)}:${twoDigits(minuteToLevel)}:${twoDigits(secondToLevel)}`
         : t("notMeasured"),
       status: sessionStatusLabel,
+      buffCountdown: buffTrackingEnabled ? formatClock(buffSecondsLeft) : t("buffOff"),
+      buffStatus: buffStatusLabel,
+      buffIsDue,
+      buffEnabled: buffTrackingEnabled,
     }),
     [
       previewExp,
@@ -114,6 +174,10 @@ function App() {
       minuteToLevel,
       secondToLevel,
       sessionStatusLabel,
+      buffSecondsLeft,
+      buffStatusLabel,
+      buffIsDue,
+      buffTrackingEnabled,
       t,
     ],
   );
@@ -168,6 +232,15 @@ function App() {
     setSessionCurrentExp(null);
     setSessionStartPercent(0);
     setElapsedSeconds(0);
+  };
+
+  const handleBuffIntervalSave = () => {
+    const nextMinutes = Number(buffMinutesInput) || 0;
+    const nextSeconds = Number(buffSecondsInput) || 0;
+    const nextInterval = clampBuffInterval(nextMinutes * 60 + nextSeconds);
+    setBuffIntervalSeconds(nextInterval);
+    setBuffMinutesInput(Math.floor(nextInterval / 60));
+    setBuffSecondsInput(nextInterval % 60);
   };
 
   const handleReading = ({ expNumber, pct }) => {
@@ -312,6 +385,66 @@ function App() {
         </div>
       </section>
 
+      <section className={`panel buff-panel ${buffIsDue ? "buff-panel-alert" : ""}`}>
+        <div className="panel-header">
+          <h2>{t("buffCheck")}</h2>
+          <p>{t("buffCheckDesc")}</p>
+        </div>
+        <div className="buff-compact">
+          <div className="buff-summary">
+            <div className="buff-stat">
+              <span className="buff-stat-label">{t("nextBuffIn")}</span>
+              <strong className="buff-stat-value">{buffReminder.countdown}</strong>
+            </div>
+            <div className="buff-stat">
+              <span className="buff-stat-label">{t("buffStatus")}</span>
+              <strong className="buff-stat-value">{buffReminder.status}</strong>
+            </div>
+          </div>
+          <div className="buff-controls-inline">
+            <button
+              className={`buff-toggle ${buffTrackingEnabled ? "buff-toggle-on" : "buff-toggle-off"}`}
+              onClick={() => setBuffTrackingEnabled((prev) => !prev)}
+            >
+              {buffTrackingEnabled ? t("buffTrackingOn") : t("buffTrackingOff")}
+            </button>
+            <div className="buff-config-inline">
+              <label className="buff-input-group">
+                <span>{t("minutes")}</span>
+                <input
+                  className="buff-input"
+                  type="number"
+                  min="0"
+                  max="59"
+                  value={buffMinutesInput}
+                  onChange={(event) => setBuffMinutesInput(event.target.value)}
+                />
+              </label>
+              <label className="buff-input-group">
+                <span>{t("seconds")}</span>
+                <input
+                  className="buff-input"
+                  type="number"
+                  min="0"
+                  max="59"
+                  value={buffSecondsInput}
+                  onChange={(event) => setBuffSecondsInput(event.target.value)}
+                />
+              </label>
+              <button
+                className="control-btn control-btn-overlay buff-save-btn"
+                onClick={handleBuffIntervalSave}
+              >
+                {t("saveBuffInterval")}
+              </button>
+            </div>
+          </div>
+          <p className="buff-config-hint">
+            {t("buffIntervalHint", { interval: buffReminder.interval })}
+          </p>
+        </div>
+      </section>
+
       <section className="panel capture-panel">
         <div className="panel-header">
           <h2>{t("capturePreview")}</h2>
@@ -349,6 +482,7 @@ function App() {
               onStop={handleStop}
               onContinue={handleContinue}
               onReset={handleReset}
+              buffReminder={buffReminder}
               captureAlert={captureAlert}
             />,
             pipMountNode,

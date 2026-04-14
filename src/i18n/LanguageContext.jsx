@@ -20,8 +20,15 @@ export function LanguageProvider({ children }) {
   };
 
   const value = useMemo(() => {
-    const t = (key) =>
-      translations[language]?.[key] ?? translations.en[key] ?? key;
+    const t = (key, replacements = null) => {
+      const template = translations[language]?.[key] ?? translations.en[key] ?? key;
+      if (!replacements) return template;
+
+      return Object.entries(replacements).reduce(
+        (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
+        template,
+      );
+    };
 
     return { language, setLanguage: setAndPersistLanguage, t };
   }, [language]);
