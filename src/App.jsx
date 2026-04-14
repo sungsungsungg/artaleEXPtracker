@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import ScreenShare from "./utils/screenShare";
 import "./App.css";
@@ -25,6 +25,7 @@ function App() {
   const [hasStream, setHasStream] = useState(false);
   const [captureAlert, setCaptureAlert] = useState("");
   const [buffTrackingEnabled, setBuffTrackingEnabled] = useState(true);
+  const [buffVolume, setBuffVolume] = useState(60);
   const [buffIntervalSeconds, setBuffIntervalSeconds] = useState(
     DEFAULT_BUFF_INTERVAL_SECONDS,
   );
@@ -43,6 +44,8 @@ function App() {
     height: 360,
     title: t("floatingStats"),
   });
+  const audioContextRef = useRef(null);
+  const beepTimeoutRef = useRef(null);
 
   // ---- utils ----
   function numberWithCommas(x) {
@@ -142,8 +145,17 @@ function App() {
       interval: formatClock(buffIntervalSeconds),
       status: buffStatusLabel,
       isDue: buffIsDue,
+      volume: buffVolume,
     }),
-    [buffIntervalSeconds, buffIsDue, buffSecondsLeft, buffStatusLabel, buffTrackingEnabled, t],
+    [
+      buffIntervalSeconds,
+      buffIsDue,
+      buffSecondsLeft,
+      buffStatusLabel,
+      buffTrackingEnabled,
+      buffVolume,
+      t,
+    ],
   );
   const floatingStatsPayload = useMemo(
     () => ({
@@ -160,6 +172,7 @@ function App() {
       buffStatus: buffStatusLabel,
       buffIsDue,
       buffEnabled: buffTrackingEnabled,
+      buffVolume,
     }),
     [
       previewExp,
@@ -178,6 +191,7 @@ function App() {
       buffStatusLabel,
       buffIsDue,
       buffTrackingEnabled,
+      buffVolume,
       t,
     ],
   );
@@ -189,6 +203,86 @@ function App() {
     }, 1000);
     return () => clearInterval(intervalId);
   }, [isRunning]);
+
+  useEffect(() => {
+    return () => {
+      if (beepTimeoutRef.current) {
+        window.clearTimeout(beepTimeoutRef.current);
+      }
+      if (audioContextRef.current?.state !== "closed") {
+        audioContextRef.current?.close().catch(() => {});
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!buffIsDue || buffVolume <= 0) {
+      if (beepTimeoutRef.current) {
+        window.clearTimeout(beepTimeoutRef.current);
+        beepTimeoutRef.current = null;
+      }
+      return undefined;
+    }
+
+    const playBuffBeep = async () => {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+
+      const context =
+        audioContextRef.current && audioContextRef.current.state !== "closed"
+          ? audioContextRef.current
+          : new AudioContextClass();
+      audioContextRef.current = context;
+
+      if (context.state === "suspended") {
+        await context.resume().catch(() => {});
+      }
+      if (context.state !== "running") return;
+
+      const oscillator = context.createOscillator();
+      const gainNode = context.createGain();
+      const now = context.currentTime;
+
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(720, now);
+      oscillator.frequency.setValueAtTime(720, now + 0.1);
+      oscillator.frequency.setValueAtTime(880, now + 0.11);
+      oscillator.frequency.setValueAtTime(880, now + 0.2);
+
+      gainNode.gain.setValueAtTime(0.0001, now);
+      gainNode.gain.exponentialRampToValueAtTime(
+        Math.max(0.0001, buffVolume / 1800),
+        now + 0.025,
+      );
+      gainNode.gain.exponentialRampToValueAtTime(
+        Math.max(0.0001, buffVolume / 2600),
+        now + 0.11,
+      );
+      gainNode.gain.exponentialRampToValueAtTime(
+        Math.max(0.0001, buffVolume / 1800),
+        now + 0.135,
+      );
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(context.destination);
+      oscillator.start(now);
+      oscillator.stop(now + 0.26);
+    };
+
+    playBuffBeep();
+    beepTimeoutRef.current = window.setTimeout(function queueNextBeep() {
+      playBuffBeep();
+      beepTimeoutRef.current = window.setTimeout(queueNextBeep, 1800);
+    }, 1800);
+
+    return () => {
+      if (beepTimeoutRef.current) {
+        window.clearTimeout(beepTimeoutRef.current);
+        beepTimeoutRef.current = null;
+      }
+    };
+  }, [buffIsDue, buffVolume]);
 
   const handleStart = () => {
     if (!hasValidPreviewExp) return;
@@ -430,6 +524,19 @@ function App() {
                   value={buffSecondsInput}
                   onChange={(event) => setBuffSecondsInput(event.target.value)}
                 />
+              </label>
+              <label className="buff-slider-group">
+                <span>{t("buffVolume")}</span>
+                <input
+                  className="buff-volume-slider"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={buffVolume}
+                  onChange={(event) => setBuffVolume(Number(event.target.value))}
+                />
+                <strong className="buff-volume-value">{buffVolume}%</strong>
               </label>
               <button
                 className="control-btn control-btn-overlay buff-save-btn"
