@@ -337,11 +337,11 @@ body {
 
 .buff-input-group {
   display: grid;
-  gap: 0.35rem;
-  font-size: 0.76rem;
+  gap: 0.42rem;
+  font-size: 0.84rem;
   color: #9fb0ca;
-  font-weight: 600;
-  min-width: 84px;
+  font-weight: 700;
+  min-width: 96px;
 }
 
 .buff-slider-group {
@@ -354,12 +354,17 @@ body {
 }
 
 .buff-input {
-  width: 84px;
-  border-radius: 10px;
-  border: 1px solid rgba(123, 144, 175, 0.34);
-  background: rgba(11, 16, 24, 0.9);
-  color: #eef4ff;
-  padding: 0.55rem 0.65rem;
+  width: 96px;
+  min-height: 46px;
+  border-radius: 12px;
+  border: 1px solid rgba(123, 144, 175, 0.4);
+  background: rgba(8, 13, 20, 0.96);
+  color: #f7fbff;
+  font-size: 1.12rem;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+  padding: 0.7rem 0.75rem;
   outline: none;
 }
 

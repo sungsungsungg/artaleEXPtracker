@@ -47,7 +47,7 @@ export default function StatsOverlay({
   onStop,
   onContinue,
   onReset,
-  buffReminder,
+  onSetBuffTracking,
   captureAlert = "",
 }) {
   const { t } = useI18n();
@@ -100,7 +100,7 @@ export default function StatsOverlay({
   }, [incomingStats]);
 
   return (
-    <main className="pip-root">
+    <main className={`pip-root ${stats.buffIsDue ? "pip-root-buff-alert" : ""}`}>
       <header className="pip-header">
         <div>
           <h1 className="pip-title">{t("appTitle")}</h1>
@@ -135,9 +135,26 @@ export default function StatsOverlay({
           <p className="pip-buff-countdown">{stats.buffCountdown}</p>
         </div>
         <div className="pip-buff-side">
-          <span className={`pip-buff-status ${stats.buffIsDue ? "pip-buff-status-alert" : ""}`}>
-            {buffReminder?.status || stats.buffStatus}
-          </span>
+          <div className="pip-buff-chip-group" role="radiogroup" aria-label={t("buffStatus")}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={stats.buffEnabled}
+              className={`pip-buff-chip ${stats.buffEnabled ? "pip-buff-chip-active pip-buff-chip-on" : ""}`}
+              onClick={() => onSetBuffTracking(true)}
+            >
+              {t("buffTrackingOn")}
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={!stats.buffEnabled}
+              className={`pip-buff-chip ${!stats.buffEnabled ? "pip-buff-chip-active pip-buff-chip-off" : ""}`}
+              onClick={() => onSetBuffTracking(false)}
+            >
+              {t("buffTrackingOff")}
+            </button>
+          </div>
         </div>
       </section>
 
